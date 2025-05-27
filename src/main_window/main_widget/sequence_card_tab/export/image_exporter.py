@@ -29,6 +29,9 @@ from utils.path_helpers import (
 if TYPE_CHECKING:
     from ..tab import SequenceCardTab
 
+# Import coordinator after TYPE_CHECKING to avoid circular imports
+from .core.export_coordinator import ExportCoordinator
+
 
 class SequenceCardImageExporter:
     def __init__(self, sequence_card_tab: "SequenceCardTab"):
@@ -42,7 +45,10 @@ class SequenceCardImageExporter:
         self.progress_dialog = None
         self.cancel_requested = False
 
-        # Optimized batch processing settings
+        # Initialize export coordinator
+        self.export_coordinator = ExportCoordinator(self)
+
+        # Optimized batch processing settings (maintained for backward compatibility)
         self.batch_size = 15  # Process 15 images at a time for better throughput
         self.memory_check_interval = 5  # Check memory every 5 images
         self.max_memory_usage_mb = 2000  # Force GC if memory exceeds 2GB
@@ -53,110 +59,66 @@ class SequenceCardImageExporter:
 
     def export_all_images(self):
         """
-        Dynamically renders sequences from the dictionary with consistent export settings.
+        Export all images using the coordinated architecture.
 
-        This method:
-        1. Loads sequences directly from the dictionary
-        2. Applies consistent export settings to all sequences
-        3. Organizes sequences by word
-        4. Exports them to the dedicated sequence_card_images directory
-        5. Uses smart caching to avoid regenerating unchanged images
-        6. Processes images in batches to limit memory usage
-        7. Implements memory management to prevent out-of-memory errors
+        This method delegates to the ExportCoordinator which handles:
+        1. Environment setup and validation
+        2. Sequence discovery and organization
+        3. Memory-efficient batch processing
+        4. Cache management and regeneration logic
+        5. Progress tracking and error handling
+        6. Memory management and cleanup
+
+        Returns:
+            Dictionary with export results and statistics
         """
-        dictionary_path = get_dictionary_path()
-        export_path = get_sequence_card_image_exporter_path()
+        return self.export_coordinator.export_all_images()
 
-        # Create the export directory if it doesn't exist
-        if not os.path.exists(export_path):
-            os.makedirs(export_path)
-
-        print(f"Loading sequences from dictionary: {dictionary_path}")
-        print(f"Exporting to: {export_path}")
-
-        # Get all word folders in the dictionary
-        word_folders = []
-        for item in os.listdir(dictionary_path):
-            item_path = os.path.join(dictionary_path, item)
-            if os.path.isdir(item_path) and not item.startswith("__"):
-                word_folders.append(item)
-
-        # Count total sequences first for progress tracking
-        total_sequences = self._count_total_sequences(dictionary_path, word_folders)
-
-        # Check initial memory usage
-        self._check_and_manage_memory()
-
-        # Initialize statistics
-        processed_sequences = 0
-        regenerated_count = 0
-        skipped_count = 0
-        failed_count = 0
-
-        try:
-            # Count total sequences for batch processing
-            all_sequences = []
-            for word in word_folders:
-                word_path = os.path.join(dictionary_path, word)
-                for sequence_file in os.listdir(word_path):
-                    if sequence_file.endswith(".png") and not sequence_file.startswith(
-                        "__"
-                    ):
-                        all_sequences.append((word, sequence_file))
-
-            total_sequences = len(all_sequences)
-            print(f"Total sequences to process: {total_sequences}")
-
-            # Process sequences in batches
-            batch_size = self.batch_size
-            for batch_start in range(0, total_sequences, batch_size):
-                if self.cancel_requested:
-                    break
-
-                batch_end = min(batch_start + batch_size, total_sequences)
-                print(
-                    f"Processing batch {batch_start//batch_size + 1} of {(total_sequences + batch_size - 1)//batch_size} (sequences {batch_start+1}-{batch_end})"
-                )
-
-                # Process the current batch
-                processed_sequences, regenerated_count, skipped_count, failed_count = (
-                    self._process_sequence_batch(
-                        word_folders,
-                        dictionary_path,
-                        export_path,
-                        batch_start,
-                        batch_end,
-                        processed_sequences,
-                        total_sequences,
-                        regenerated_count,
-                        skipped_count,
-                        failed_count,
-                    )
-                )
-
-                # Force garbage collection between batches
-                self._check_and_manage_memory(force_cleanup=True)
-
-                # Process events to keep UI responsive
-                QApplication.processEvents()
-
-        except Exception:
-            pass
-        finally:
-            pass
-
-            # Final memory cleanup
-            self._check_and_manage_memory(force_cleanup=True)
-
+    # Delegation methods for backward compatibility
     def get_all_images(self, path: str) -> list[str]:
-        images = []
-        for root, _, files in os.walk(path):
-            for file in files:
-                if file.endswith((".png", ".jpg", ".jpeg")):
-                    images.append(os.path.join(root, file))
-        return images
+        """Get all image files in a directory tree."""
+        return self.export_coordinator.file_operations.get_all_images(path)
 
     def qimage_to_pil(self, qimage: QImage, max_dimension: int = 3000) -> Image.Image:
+        """Convert QImage to PIL Image (delegates to coordinator)."""
+        return self.export_coordinator.convert_qimage_to_pil(qimage, max_dimension)
+
+    def convert_qimage_to_pil(
+        self, qimage: QImage, max_dimension: int = 3000
+    ) -> Image.Image:
+        """Alternative method name for backward compatibility."""
+        return self.qimage_to_pil(qimage, max_dimension)
+
+    def check_regeneration_needed(self, source_path: str, output_path: str) -> tuple:
+        """Check if regeneration is needed (delegates to coordinator)."""
+        return self.export_coordinator.check_regeneration_needed(
+            source_path, output_path
+        )
+
+    def get_memory_usage(self) -> float:
+        """Get current memory usage (delegates to coordinator)."""
+        return self.export_coordinator.get_memory_usage()
+
+    def force_memory_cleanup(self) -> None:
+        """Force memory cleanup (delegates to coordinator)."""
+        self.export_coordinator.force_memory_cleanup()
+
+    def cancel_export(self) -> None:
+        """Cancel the export process (delegates to coordinator)."""
+        self.export_coordinator.cancel_export()
+
+    def get_export_statistics(self) -> dict:
+        """Get export statistics (delegates to coordinator)."""
+        return self.export_coordinator.get_export_statistics()
+
+    def get_performance_stats(self) -> dict:
+        """Get performance statistics (delegates to coordinator)."""
+        return self.export_coordinator.get_performance_stats()
+
+    # Legacy method implementations (kept for backward compatibility)
+    def _qimage_to_pil_legacy(
+        self, qimage: QImage, max_dimension: int = 3000
+    ) -> Image.Image:
         """
         Convert a QImage to a PIL Image with memory-efficient processing and high quality.
 
