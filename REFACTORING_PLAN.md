@@ -16,13 +16,13 @@ This document outlines the systematic refactoring of monolithic files in The Kin
 
 ## 📊 Priority Ranking by Line Count & Complexity
 
-| **Priority**    | **File**                                                                              | **Lines**           | **Current Responsibilities**                                                      | **Refactoring Status**                                       |
-| --------------- | ------------------------------------------------------------------------------------- | ------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| **✅ COMPLETE** | `src/main_window/main_widget/core/main_widget_coordinator.py`                         | **250** _(was 668)_ | Tab management, widget coordination, layout, state management                     | **✅ COMPLETED** - 63% reduction, 6 components, 61 tests     |
-| **✅ COMPLETE** | `src/main_window/main_widget/sequence_card_tab/components/display/image_processor.py` | **751**             | Image loading, scaling, caching, memory management, disk cache, performance stats | **✅ COMPLETED** - Coordinator pattern implemented           |
-| **� PARTIAL**   | `src/main_window/main_widget/browse_tab/thumbnail_box/thumbnail_image_label.py`       | **663**             | Image processing, caching, UI rendering, event handling, quality enhancement      | **🔄 PARTIALLY DONE** - Coordinator exists, needs completion |
-| **🎯 NEXT**     | `src/main_window/main_widget/settings_dialog/core/glassmorphism_styler.py`            | **584**             | Styling, theming, effects, color management, UI components                        | **🎯 NEXT TARGET** - Ready for refactoring                   |
-| **� PLANNED**   | `src/main_window/main_widget/sequence_card_tab/export/image_exporter.py`              | **520**             | Image export, rendering, file operations, format handling                         | **📋 PLANNED** - Export functionality                        |
+| **Priority**    | **File**                                                                              | **Lines**           | **Current Responsibilities**                                                      | **Refactoring Status**                                              |
+| --------------- | ------------------------------------------------------------------------------------- | ------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| **✅ COMPLETE** | `src/main_window/main_widget/core/main_widget_coordinator.py`                         | **250** _(was 668)_ | Tab management, widget coordination, layout, state management                     | **✅ COMPLETED** - 63% reduction, 6 components, 61 tests            |
+| **✅ COMPLETE** | `src/main_window/main_widget/sequence_card_tab/components/display/image_processor.py` | **751**             | Image loading, scaling, caching, memory management, disk cache, performance stats | **✅ COMPLETED** - Coordinator pattern implemented                  |
+| **� PARTIAL**   | `src/main_window/main_widget/browse_tab/thumbnail_box/thumbnail_image_label.py`       | **663**             | Image processing, caching, UI rendering, event handling, quality enhancement      | **🔄 PARTIALLY DONE** - Coordinator exists, needs completion        |
+| **✅ COMPLETE** | `src/main_window/main_widget/settings_dialog/core/glassmorphism_styler.py`            | **143** _(was 584)_ | Styling, theming, effects, color management, UI components                        | **✅ COMPLETED** - 75% reduction, 5 components, coordinator pattern |
+| **� PLANNED**   | `src/main_window/main_widget/sequence_card_tab/export/image_exporter.py`              | **520**             | Image export, rendering, file operations, format handling                         | **📋 PLANNED** - Export functionality                               |
 
 ## 🏗️ Detailed Refactoring Phases
 
