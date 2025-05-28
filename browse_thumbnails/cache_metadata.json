@@ -76,11 +76,18 @@
     "cached_at": 1748333976.0217824,
     "cache_file": "browse_thumbnails\\e41d83abc3ac8cec22001f30b4729ddd.png"
   },
-  "5437c9daeb0a9295bde43578b001bb13": {
-    "source_path": "F:\\CODE\\TKA\\the-kinetic-constructor-desktop\\src\\data\\dictionary\\\u03b1L\u03b2\u03b2\u03b2\u03a8-\u03b2F\u03b1\u03b1\u03b1\u03b1\u03b1\u03b1\u03b1\u03b1\\\u03b1L\u03b2\u03b2\u03b2\u03a8-\u03b2F\u03b1\u03b1\u03b1\u03b1\u03b1\u03b1\u03b1\u03b1_ver1.png",
-    "target_width": 391,
-    "target_height": 391,
-    "cached_at": 1748333975.592286,
-    "cache_file": "browse_thumbnails\\5437c9daeb0a9295bde43578b001bb13.png"
+  "93eeccef7d3aaab85309bd6de152245e": {
+    "source_path": "F:\\CODE\\TKA\\the-kinetic-constructor-desktop\\src\\data\\dictionary\\AAKE\\AAKE_ver1.png",
+    "target_width": 729,
+    "target_height": 731,
+    "cached_at": 1748333883.7141683,
+    "cache_file": "browse_thumbnails\\93eeccef7d3aaab85309bd6de152245e.png"
+  },
+  "daec7920ad30439329594cc84e284c24": {
+    "source_path": "F:\\CODE\\TKA\\the-kinetic-constructor-desktop\\src\\data\\dictionary\\ABC\\ABC_ver1.png",
+    "target_width": 729,
+    "target_height": 731,
+    "cached_at": 1748333883.9453497,
+    "cache_file": "browse_thumbnails\\daec7920ad30439329594cc84e284c24.png"
   }
 }

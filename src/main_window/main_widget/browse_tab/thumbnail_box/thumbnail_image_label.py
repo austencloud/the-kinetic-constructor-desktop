@@ -132,42 +132,37 @@ class ThumbnailImageLabel(QLabel):
         super().__init__()
         # Instance attributes
         self.thumbnail_box = thumbnail_box
-        self.metadata_extractor = MetaDataExtractor()
         self.selected = False
         self.current_path: Optional[str] = None
 
-        # Private attributes
+        # Initialize thumbnail coordinator
+        self.thumbnail_coordinator = ThumbnailCoordinator(thumbnail_box)
+
+        # UI state attributes
         self._border_width = 4
         self._border_color: Optional[str] = None
-        self._original_pixmap: Optional[QPixmap] = None
         self._cached_available_size: Optional[QSize] = None
 
-        # Image processor
+        # Legacy attributes for backward compatibility
+        self.metadata_extractor = MetaDataExtractor()
         self.image_processor = ImageProcessor()
+        self._pending_path: Optional[str] = None
+        self._pending_index: Optional[int] = None
+        self._needs_quality_enhancement = False
+        self._cache_metadata = {}
 
-        # Deferred loading to prevent UI blocking
+        # Setup timers (now delegated to coordinator)
         self._load_timer = QTimer()
         self._load_timer.setSingleShot(True)
         self._load_timer.timeout.connect(self._load_pending_image)
-        self._pending_path: Optional[str] = None
-        self._pending_index: Optional[int] = None
 
-        # Quality enhancement timer
         self._quality_timer = QTimer()
         self._quality_timer.setSingleShot(True)
         self._quality_timer.timeout.connect(self._enhance_image_quality)
-        self._needs_quality_enhancement = False
-
-        # Initialize cache system
-        self._cache_metadata = {}
-        self._ensure_cache_directory()
-        self._load_cache_metadata()
 
         # Setup UI
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        # Set object name to exclude from glassmorphism styling
         self.setObjectName("thumbnail_image_label")
 
     @property
@@ -180,72 +175,50 @@ class ThumbnailImageLabel(QLabel):
 
     @property
     def aspect_ratio(self) -> float:
-        """Get aspect ratio of the original image"""
-        return (
-            self._original_pixmap.width() / self._original_pixmap.height()
-            if self._original_pixmap and self._original_pixmap.height() > 0
-            else 1
-        )
+        """Get aspect ratio of the original image (delegates to coordinator)."""
+        return self.thumbnail_coordinator.get_aspect_ratio(self.current_path)
+
+    @property
+    def _original_pixmap(self) -> Optional[QPixmap]:
+        """Legacy property for backward compatibility."""
+        return self.thumbnail_coordinator.get_original_pixmap(self.current_path)
 
     def update_thumbnail(self, index: int) -> None:
-        """Update the displayed image based on the given index (synchronous)."""
-        thumbnails = self.thumbnail_box.state.thumbnails
-        if not thumbnails or not (0 <= index < len(thumbnails)):
-            return
-
-        path = thumbnails[index]
-        if path != self.current_path:
-            self.current_path = path
-            self._original_pixmap = QPixmap(path)
+        """Update the displayed image based on the given index (delegates to coordinator)."""
+        result = self.thumbnail_coordinator.update_thumbnail_sync(self, index)
+        if result:
+            self.current_path = result["path"]
             self._cached_available_size = None
 
-        self._resize_pixmap_to_ultra_quality()
-
     def update_thumbnail_async(self, index: int) -> None:
-        """Update the displayed image asynchronously with ultra quality processing."""
-        thumbnails = self.thumbnail_box.state.thumbnails
-        if not thumbnails or not (0 <= index < len(thumbnails)):
-            return
+        """Update the displayed image asynchronously (delegates to coordinator)."""
+        result = self.thumbnail_coordinator.update_thumbnail_async(self, index)
+        if result:
+            self.current_path = result["path"]
+            self._pending_path = result.get("pending_path")
+            self._pending_index = result.get("pending_index")
 
-        path = thumbnails[index]
-        if path != self.current_path:
-            self._pending_path = path
-            self._pending_index = index
-
-            # Load with ultra quality processing (no cache)
-            self._load_timer.start(1)
-        else:
-            self._resize_pixmap_to_ultra_quality()
+            if result.get("start_timer"):
+                self._load_timer.start(1)
 
     def _load_pending_image(self) -> None:
-        """Load pending image with ultra quality processing."""
-        if self._pending_path and self._pending_index is not None:
-            try:
-                # Process with ultra quality (no cache)
-                if os.path.exists(self._pending_path):
-                    self.current_path = self._pending_path
-                    self._original_pixmap = QPixmap(self._pending_path)
-                    self._cached_available_size = None
-
-                    # Always use ultra quality processing
-                    self._resize_pixmap_to_ultra_quality()
-
-            except Exception as e:
-                logging.error(f"Error in ultra quality loading: {e}")
-            finally:
-                self._pending_path = None
-                self._pending_index = None
+        """Load pending image (delegates to coordinator)."""
+        result = self.thumbnail_coordinator.load_pending_image(
+            self, self._pending_path, self._pending_index
+        )
+        if result:
+            self.current_path = result["path"]
+            self._cached_available_size = None
+            # Clear pending state
+            self._pending_path = None
+            self._pending_index = None
 
     def _calculate_available_space(self) -> QSize:
-        """Calculate available space - ENHANCED FOR MAXIMUM QUALITY."""
+        """Calculate available space (delegates to coordinator)."""
         if self._cached_available_size:
             return self._cached_available_size
 
-        if self.is_in_sequence_viewer:
-            available_size = self._calculate_sequence_viewer_size()
-        else:
-            available_size = self._calculate_normal_view_size_enhanced()
-
+        available_size = self.thumbnail_coordinator.calculate_available_space(self)
         self._cached_available_size = available_size
         return available_size
 
@@ -297,46 +270,32 @@ class ThumbnailImageLabel(QLabel):
         return QSize(available_width, available_height)
 
     def _resize_pixmap_to_ultra_quality(self) -> None:
-        """Resize pixmap using ULTRA QUALITY processing with user settings."""
+        """Resize pixmap using ultra quality processing (delegates to coordinator)."""
         if not self.current_path:
             return
 
-        available_size = self._calculate_available_space()
+        result = self.thumbnail_coordinator.process_ultra_quality_thumbnail(
+            self, self.current_path
+        )
 
-        # Check cache first
-        cached_pixmap = self._get_cached_thumbnail(available_size)
-        if cached_pixmap and not cached_pixmap.isNull():
+        if result and result.get("pixmap"):
+            available_size = result["available_size"]
+            pixmap = result["pixmap"]
+
             self.setFixedSize(available_size)
-            self.setPixmap(cached_pixmap)
-            logging.debug(
-                f"✅ Loaded cached thumbnail: {os.path.basename(self.current_path)}"
-            )
-            return
+            self.setPixmap(pixmap)
 
-        # HIGH QUALITY PROCESSING - always use SmoothTransformation
-        processed_pixmap = self.image_processor.process_image(
-            self.current_path,
-            available_size,
-        )
-
-        # CRITICAL: Ensure pixmap is not null before proceeding
-        if processed_pixmap.isNull():
-            logging.warning(
-                f"Failed to create processed pixmap for {self.current_path}"
-            )
-            # Fallback to standard processing
+            if result.get("from_cache"):
+                logging.debug(
+                    f"✅ Loaded cached thumbnail: {os.path.basename(self.current_path)}"
+                )
+            else:
+                logging.debug(
+                    f"✅ High-quality thumbnail processed: {os.path.basename(self.current_path)}"
+                )
+        else:
+            # Fallback to legacy processing
             self._resize_pixmap_to_fit_smooth()
-            return
-
-        # Cache the high-quality thumbnail
-        self._cache_thumbnail(processed_pixmap, available_size)
-
-        self.setFixedSize(available_size)
-        self.setPixmap(processed_pixmap)
-
-        logging.debug(
-            f"✅ High-quality thumbnail processed: {os.path.basename(self.current_path)}"
-        )
 
     # Removed _get_quality_settings - now always using maximum quality
 
@@ -508,67 +467,18 @@ class ThumbnailImageLabel(QLabel):
             return hashlib.md5(key_data.encode()).hexdigest()
 
     def _get_cached_thumbnail(self, target_size: QSize) -> Optional[QPixmap]:
-        """Get cached thumbnail if available and valid."""
-        if not self.current_path:
-            return None
-
-        cache_key = self._generate_cache_key(self.current_path, target_size)
-        cache_file = self.CACHE_DIR / f"{cache_key}.png"
-
-        try:
-            # Check if cache file exists and metadata is valid
-            if cache_file.exists() and cache_key in self._cache_metadata:
-                metadata = self._cache_metadata[cache_key]
-
-                # Validate cache entry
-                if (
-                    metadata.get("source_path") == self.current_path
-                    and metadata.get("target_width") == target_size.width()
-                    and metadata.get("target_height") == target_size.height()
-                ):
-
-                    # Load cached pixmap
-                    pixmap = QPixmap(str(cache_file))
-                    if not pixmap.isNull():
-                        return pixmap
-
-        except Exception as e:
-            logging.debug(f"Error loading cached thumbnail: {e}")
-
-        return None
+        """Get cached thumbnail (delegates to coordinator)."""
+        return self.thumbnail_coordinator.get_cached_thumbnail(
+            self.current_path, target_size
+        )
 
     def _cache_thumbnail(self, pixmap: QPixmap, target_size: QSize) -> None:
-        """Cache thumbnail to disk."""
-        if not self.current_path or pixmap.isNull():
-            return
+        """Cache thumbnail (delegates to coordinator)."""
+        self.thumbnail_coordinator.cache_thumbnail(
+            self.current_path, pixmap, target_size
+        )
 
-        cache_key = self._generate_cache_key(self.current_path, target_size)
-        cache_file = self.CACHE_DIR / f"{cache_key}.png"
-
-        try:
-            # Save pixmap to cache
-            if pixmap.save(str(cache_file), "PNG"):
-                # Update metadata
-                self._cache_metadata[cache_key] = {
-                    "source_path": self.current_path,
-                    "target_width": target_size.width(),
-                    "target_height": target_size.height(),
-                    "cached_at": os.path.getmtime(self.current_path),
-                    "cache_file": str(cache_file),
-                }
-
-                # Save metadata (async to avoid blocking)
-                QTimer.singleShot(100, self._save_cache_metadata)
-
-                logging.debug(
-                    f"✅ Cached thumbnail: {os.path.basename(self.current_path)}"
-                )
-            else:
-                logging.warning(f"Failed to save thumbnail cache: {cache_file}")
-
-        except Exception as e:
-            logging.warning(f"Error caching thumbnail: {e}")
-
+    # Event handling methods
     def mousePressEvent(self, event: QMouseEvent) -> None:
         """Handle mouse press events."""
         if not self.is_in_sequence_viewer:
@@ -591,6 +501,27 @@ class ThumbnailImageLabel(QLabel):
         self.selected = selected
         self._border_color = GOLD if selected else None
         self.update()
+
+    # Legacy delegation methods for backward compatibility
+    def _ensure_cache_directory(self) -> None:
+        """Legacy method - now handled by coordinator."""
+        pass
+
+    def _load_cache_metadata(self) -> None:
+        """Legacy method - now handled by coordinator."""
+        pass
+
+    def _save_cache_metadata(self) -> None:
+        """Legacy method - now handled by coordinator."""
+        pass
+
+    def _generate_cache_key(self, image_path: str, target_size: QSize) -> str:
+        """Legacy method - delegates to coordinator."""
+        return self.thumbnail_coordinator.generate_cache_key(image_path, target_size)
+
+    def _enhance_image_quality(self) -> None:
+        """Legacy method - now handled by coordinator."""
+        pass
 
     def _draw_border(self, painter: QPainter) -> None:
         """Draw border around the thumbnail."""
@@ -636,29 +567,19 @@ class ThumbnailImageLabel(QLabel):
         self._border_width = max(1, int(self.width() * self.BORDER_WIDTH_RATIO))
         super().resizeEvent(event)
 
-    # Removed cache initialization and word/variation tracking - no longer needed
-
-    def _enhance_image_quality(self) -> None:
-        """Legacy method - now handled by ultra_processor."""
-        pass  # Ultra quality processing handles all enhancement
-
     def _check_viewport_visibility(self) -> bool:
-        """Check if this thumbnail is currently visible in the viewport."""
-        try:
-            scroll_widget = self.thumbnail_box.sequence_picker.scroll_widget
-            scroll_area = scroll_widget.scroll_area
+        """Check if this thumbnail is currently visible in the viewport (delegates to coordinator)."""
+        return self.thumbnail_coordinator.check_viewport_visibility(self)
 
-            thumbnail_global_pos = self.mapToGlobal(self.rect().topLeft())
-            scroll_area_global_pos = scroll_area.mapToGlobal(
-                scroll_area.rect().topLeft()
-            )
+    # Performance and statistics methods
+    def get_performance_stats(self) -> dict:
+        """Get performance statistics from the coordinator."""
+        return self.thumbnail_coordinator.get_performance_stats()
 
-            relative_pos = thumbnail_global_pos - scroll_area_global_pos
-            visible_rect = scroll_area.viewport().rect()
-            thumbnail_rect = self.rect()
-            thumbnail_rect.moveTopLeft(relative_pos)
+    def clear_cache(self) -> None:
+        """Clear thumbnail cache (delegates to coordinator)."""
+        self.thumbnail_coordinator.clear_cache()
 
-            return visible_rect.intersects(thumbnail_rect)
-
-        except Exception:
-            return True
+    def get_cache_stats(self) -> dict:
+        """Get cache statistics (delegates to coordinator)."""
+        return self.thumbnail_coordinator.get_cache_stats()
