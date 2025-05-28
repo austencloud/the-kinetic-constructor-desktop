@@ -48,6 +48,7 @@ class ImageExportManager:
             try:
                 json_manager = self.main_widget.app_context.json_manager
                 sequence = json_manager.loader_saver.load_current_sequence()
+
             except AttributeError:
                 # Fallback when json_manager not available
                 sequence = []

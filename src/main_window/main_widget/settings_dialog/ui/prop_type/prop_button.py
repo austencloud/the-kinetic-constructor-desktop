@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import QPushButton
 from PyQt6.QtGui import QIcon, QCursor
 from PyQt6.QtCore import Qt, QSize
 from enums.prop_type import PropType
-from ...core.glassmorphism_styler import GlassmorphismStyler
+from styles.glassmorphism_styler import GlassmorphismStyler
 
 if TYPE_CHECKING:
     from .prop_type_tab import PropTypeTab

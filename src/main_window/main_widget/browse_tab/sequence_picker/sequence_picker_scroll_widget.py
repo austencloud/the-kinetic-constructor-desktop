@@ -1,12 +1,14 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QScrollArea, QGridLayout, QSizePolicy
+import logging
 
 from ..thumbnail_box.thumbnail_box import ThumbnailBox
 
 if TYPE_CHECKING:
     from .sequence_picker import SequencePicker
     from ..browse_tab_section_header import BrowseTabSectionHeader
+    from ..lazy_loading.browse_tab_lazy_loader import BrowseTabLazyLoader
 
 
 class SequencePickerScrollWidget(QWidget):
@@ -15,6 +17,10 @@ class SequencePickerScrollWidget(QWidget):
         self.sequence_picker = sequence_picker
         self.thumbnail_boxes: dict[str, ThumbnailBox] = {}
         self.section_headers: dict[int, "BrowseTabSectionHeader"] = {}
+
+        # Lazy loading support
+        self._lazy_loader: Optional["BrowseTabLazyLoader"] = None
+        self._lazy_loading_enabled = False
 
         self.setStyleSheet("background: transparent;")
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
@@ -53,3 +59,49 @@ class SequencePickerScrollWidget(QWidget):
 
     def calculate_scrollbar_width(self):
         return self.sequence_picker.main_widget.width() * 0.01
+
+    def enable_lazy_loading(self, lazy_loader: "BrowseTabLazyLoader") -> None:
+        """Enable lazy loading for all thumbnails in this scroll widget."""
+        self._lazy_loader = lazy_loader
+        self._lazy_loading_enabled = True
+
+        # Enable lazy loading for existing thumbnails
+        for thumbnail_box in self.thumbnail_boxes.values():
+            if hasattr(thumbnail_box.image_label, "enable_lazy_loading"):
+                thumbnail_box.image_label.enable_lazy_loading(lazy_loader)
+
+        logging.info("Lazy loading enabled for scroll widget")
+
+    def disable_lazy_loading(self) -> None:
+        """Disable lazy loading for all thumbnails."""
+        self._lazy_loading_enabled = False
+
+        # Disable lazy loading for existing thumbnails
+        for thumbnail_box in self.thumbnail_boxes.values():
+            if hasattr(thumbnail_box.image_label, "disable_lazy_loading"):
+                thumbnail_box.image_label.disable_lazy_loading()
+
+        self._lazy_loader = None
+        logging.info("Lazy loading disabled for scroll widget")
+
+    def add_thumbnail_box(self, word: str, thumbnail_box: ThumbnailBox) -> None:
+        """Add a thumbnail box and configure lazy loading if enabled."""
+        self.thumbnail_boxes[word] = thumbnail_box
+
+        # Configure lazy loading for new thumbnail if enabled
+        if self._lazy_loading_enabled and self._lazy_loader:
+            if hasattr(thumbnail_box.image_label, "enable_lazy_loading"):
+                thumbnail_box.image_label.enable_lazy_loading(self._lazy_loader)
+
+    def get_lazy_loading_stats(self) -> dict:
+        """Get lazy loading statistics for this scroll widget."""
+        if not self._lazy_loader:
+            return {"lazy_loading_enabled": False}
+
+        return {
+            "lazy_loading_enabled": self._lazy_loading_enabled,
+            "total_thumbnails": len(self.thumbnail_boxes),
+            "lazy_loader_stats": (
+                self._lazy_loader.get_stats() if self._lazy_loader else {}
+            ),
+        }

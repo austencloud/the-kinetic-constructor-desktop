@@ -1,6 +1,8 @@
 from datetime import datetime
 from typing import TYPE_CHECKING
-from main_window.main_widget.browse_tab.thumbnail_box.thumbnail_box import ThumbnailBox
+from main_window.main_widget.browse_tab.thumbnail_box.thumbnail_box_factory import (
+    ThumbnailBoxFactory,
+)
 
 if TYPE_CHECKING:
     from main_window.main_widget.browse_tab.sequence_picker.sequence_picker import (
@@ -173,7 +175,10 @@ class SequencePickerSorter:
         skip_image: bool = False,
     ):
         if word not in self.scroll_widget.thumbnail_boxes:
-            thumbnail_box = ThumbnailBox(self.browse_tab, word, thumbnails)
+            # Use modern integrated thumbnail box for enhanced display
+            thumbnail_box = ThumbnailBoxFactory.create_integrated_thumbnail_box(
+                self.browse_tab, word, thumbnails
+            )
             self.scroll_widget.thumbnail_boxes[word] = thumbnail_box
         else:
             thumbnail_box = self.scroll_widget.thumbnail_boxes[word]

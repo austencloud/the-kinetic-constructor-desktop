@@ -14,15 +14,10 @@ from PyQt6.QtWidgets import (
 
 from main_window.main_widget.sequence_workbench.workbench_button import WorkbenchButton
 from .button_panel_placeholder import ButtonPanelPlaceholder
-from utils.path_helpers import get_image_path
+from utils.path_helpers import get_image_path, get_user_editable_resource_path
 
 if TYPE_CHECKING:
     from .sequence_workbench import SequenceWorkbench
-
-
-# Correctly calculate project root (parent of src/ directory)
-# Navigate up from current file: sequence_workbench -> main_widget -> main_window -> src -> project_root
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../.."))
 
 
 class SequenceWorkbenchButtonPanel(QFrame):
@@ -98,6 +93,7 @@ class SequenceWorkbenchButtonPanel(QFrame):
                 "callback": lambda: self.clear_sequence(),
                 "tooltip": "Clear Sequence",
             },
+
         }
 
         for button_name, button_data in button_dict.items():
@@ -113,8 +109,11 @@ class SequenceWorkbenchButtonPanel(QFrame):
                 icon_path, button_data["callback"], button_data["tooltip"]
             )
 
-            # Special handling for emoji button (copy_sequence)
-            if button_name == "copy_sequence":
+            # Special handling for emoji buttons (copy_sequence and test_export)
+            if (
+                button_name in ["copy_sequence", "test_export"]
+                and "text" in button_data
+            ):
                 button.setText(button_data["text"])  # Set emoji text
                 # Adjust font size for emoji visibility
                 font = button.font()
@@ -130,7 +129,9 @@ class SequenceWorkbenchButtonPanel(QFrame):
     def _copy_sequence_json(self):
         """Copies the content of current_sequence.json to the clipboard and updates indicator."""
         try:
-            sequence_file_path = os.path.join(PROJECT_ROOT, "current_sequence.json")
+            sequence_file_path = get_user_editable_resource_path(
+                "current_sequence.json"
+            )
             if os.path.exists(sequence_file_path):
                 with open(sequence_file_path, "r", encoding="utf-8") as file:
                     sequence_data = json.load(file)
@@ -154,6 +155,20 @@ class SequenceWorkbenchButtonPanel(QFrame):
             print(f"{error_message} Details: {e}")
             self.indicator_label.show_message(error_message)
             self.copy_sequence_button.setToolTip(f"Error: {e}")
+
+    def _show_export_test_component(self):
+        """Show the export test component in a new window."""
+        from .sequence_beat_frame.image_export_manager.export_test_component import (
+            ExportTestComponent,
+        )
+
+        # Create and show the test component
+        self.export_test_window = ExportTestComponent(self.sequence_workbench)
+        self.export_test_window.setWindowTitle("Image Export Test Component")
+        self.export_test_window.resize(600, 800)
+        self.export_test_window.show()
+
+        self.indicator_label.show_message("Export test component opened")
 
     def clear_sequence(self):
         sequence_length = len(
@@ -221,8 +236,8 @@ class SequenceWorkbenchButtonPanel(QFrame):
         self.spacers.append(self.spacer2)  # Keep track of spacers
 
         # Group 3 (Sequence Management)
-        # Order: delete_beat, copy_sequence, clear_sequence (copy_sequence is third-to-last)
-        for name in ["delete_beat", "copy_sequence", "clear_sequence"]:
+        # Order: delete_beat, copy_sequence, test_export, clear_sequence
+        for name in ["delete_beat", "copy_sequence", "test_export", "clear_sequence"]:
             if name in self.buttons:  # Check if button exists before adding
                 self.layout.addWidget(self.buttons[name])
 
@@ -249,7 +264,7 @@ class SequenceWorkbenchButtonPanel(QFrame):
         # Resize all buttons
         for button_name, button in self.buttons.items():
             # Special handling for emoji button text size during resize
-            if button_name == "copy_sequence":
+            if button_name in ["copy_sequence", "test_export"]:
                 font = button.font()
                 # Use the same multiplier as defined in the button_dict
                 font.setPointSize(

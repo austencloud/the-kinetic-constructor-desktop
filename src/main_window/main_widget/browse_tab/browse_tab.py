@@ -1,6 +1,7 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 from PyQt6.QtWidgets import QWidget
 from PyQt6.QtCore import QTimer
+import logging
 
 from main_window.main_widget.browse_tab.browse_tab_filter_controller import (
     BrowseTabFilterController,
@@ -20,6 +21,7 @@ from .deletion_handler.browse_tab_deletion_handler import BrowseTabDeletionHandl
 from .browse_tab_selection_handler import BrowseTabSelectionHandler
 from .sequence_viewer.sequence_viewer import SequenceViewer
 from .browse_tab_state import BrowseTabState
+from .lazy_loading.browse_tab_lazy_loader import BrowseTabLazyLoader
 
 if TYPE_CHECKING:
     from main_window.main_widget.main_widget import MainWidget
@@ -82,6 +84,11 @@ class BrowseTab(QWidget):
 
         self.persistence_manager = BrowseTabPersistenceManager(self)
 
+        # Initialize lazy loading system
+        self._lazy_loader: Optional[BrowseTabLazyLoader] = None
+        self._lazy_loading_enabled = False
+        self._initialize_lazy_loading()
+
         # FILTER RESPONSIVENESS FIX: Simple deferred initialization
         QTimer.singleShot(100, self._complete_initialization)
 
@@ -111,6 +118,29 @@ class BrowseTab(QWidget):
         layout.addWidget(self.sequence_viewer, 1)  # 1/3 width (33.3%)
 
         self.setLayout(layout)
+
+    def _initialize_lazy_loading(self) -> None:
+        """Initialize the lazy loading system for the browse tab."""
+        try:
+            # Create lazy loader with grid configuration
+            scroll_area = self.sequence_picker.scroll_widget.scroll_area
+            self._lazy_loader = BrowseTabLazyLoader(
+                scroll_area=scroll_area,
+                grid_columns=3,  # Browse tab uses 3 columns
+                buffer_rows=7,  # Load 7 rows ahead/behind viewport
+            )
+
+            # Enable lazy loading for the scroll widget
+            self.sequence_picker.scroll_widget.enable_lazy_loading(self._lazy_loader)
+            self._lazy_loading_enabled = True
+
+            logger = logging.getLogger(__name__)
+            logger.info("✅ Lazy loading system initialized for browse tab")
+
+        except Exception as e:
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Failed to initialize lazy loading: {e}")
+            self._lazy_loading_enabled = False
 
     def _ensure_filter_responsiveness(self):
         """
@@ -350,3 +380,65 @@ class BrowseTab(QWidget):
 
         except Exception as e:
             logger.error(f"❌ Force reload error: {e}")
+
+    def enable_lazy_loading(self) -> bool:
+        """
+        Enable lazy loading for the browse tab.
+
+        Returns:
+            True if lazy loading was enabled successfully
+        """
+        try:
+            if not self._lazy_loader:
+                self._initialize_lazy_loading()
+
+            if self._lazy_loader:
+                self.sequence_picker.scroll_widget.enable_lazy_loading(
+                    self._lazy_loader
+                )
+                self._lazy_loading_enabled = True
+
+                logger = logging.getLogger(__name__)
+                logger.info("✅ Lazy loading enabled for browse tab")
+                return True
+
+            return False
+
+        except Exception as e:
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Failed to enable lazy loading: {e}")
+            return False
+
+    def disable_lazy_loading(self) -> None:
+        """Disable lazy loading for the browse tab."""
+        try:
+            if self._lazy_loader:
+                self.sequence_picker.scroll_widget.disable_lazy_loading()
+                self._lazy_loading_enabled = False
+
+                logger = logging.getLogger(__name__)
+                logger.info("✅ Lazy loading disabled for browse tab")
+
+        except Exception as e:
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Failed to disable lazy loading: {e}")
+
+    def get_lazy_loading_stats(self) -> dict:
+        """Get comprehensive lazy loading statistics."""
+        try:
+            if not self._lazy_loader:
+                return {"lazy_loading_enabled": False, "error": "No lazy loader"}
+
+            return {
+                "lazy_loading_enabled": self._lazy_loading_enabled,
+                "browse_tab_stats": self._lazy_loader.get_stats(),
+                "scroll_widget_stats": self.sequence_picker.scroll_widget.get_lazy_loading_stats(),
+            }
+
+        except Exception as e:
+            return {"lazy_loading_enabled": False, "error": str(e)}
+
+    @property
+    def is_lazy_loading_enabled(self) -> bool:
+        """Check if lazy loading is currently enabled."""
+        return self._lazy_loading_enabled

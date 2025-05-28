@@ -26,6 +26,7 @@ class ImageExportBeatFactory:
         self.beat_frame_class = beat_frame_class
 
     def process_sequence_to_beats(self, sequence: list[dict]) -> list[BeatView]:
+
         if self.beat_frame_class.__name__ == "SequenceBeatFrame":
             temp_beat_frame = self.beat_frame_class(
                 self.export_manager.main_widget.sequence_workbench
@@ -39,6 +40,7 @@ class ImageExportBeatFactory:
         current_beat_number = 1
 
         for beat_data in sequence[2:]:
+
             if beat_data.get("is_placeholder"):
                 continue
 
