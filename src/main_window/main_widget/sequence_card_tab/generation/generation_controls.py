@@ -1,4 +1,5 @@
 # src/main_window/main_widget/sequence_card_tab/generation/generation_controls.py
+import logging
 from PyQt6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -13,6 +14,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont, QCursor
 from .generation_manager import GenerationParams
+from src.interfaces.settings_manager_interface import ISettingsManager  # Added import
 
 
 class GenerationControlsPanel(QWidget):
@@ -26,10 +28,14 @@ class GenerationControlsPanel(QWidget):
     generate_requested = pyqtSignal(object, int)  # GenerationParams, batch_size
     clear_requested = pyqtSignal()
 
-    def __init__(self, parent=None):
+    def __init__(
+        self, settings_manager: ISettingsManager | None = None, parent=None
+    ):  # Modified signature
         super().__init__(parent)
+        self.settings_manager = settings_manager  # Directly assign
         self.setup_ui()
         self.apply_styling()
+        self._setup_settings_persistence()
 
     def setup_ui(self):
         """Setup the UI components."""
@@ -143,6 +149,110 @@ class GenerationControlsPanel(QWidget):
 
         # Connect level change to update intensity options
         self.level_combo.currentTextChanged.connect(self.on_level_changed)
+
+    def _setup_settings_persistence(self):
+        """Setup automatic settings persistence for all controls."""
+        try:
+            # self.settings_manager is now passed in constructor
+            if self.settings_manager:
+                # Load saved settings
+                self._load_saved_settings()
+
+                # Connect all controls to auto-save
+                self.start_pos_combo.currentTextChanged.connect(self._save_settings)
+                self.length_combo.currentTextChanged.connect(self._save_settings)
+                self.level_combo.currentTextChanged.connect(self._save_settings)
+                self.intensity_combo.currentTextChanged.connect(self._save_settings)
+                self.mode_combo.currentTextChanged.connect(self._save_settings)
+                self.continuity_combo.currentTextChanged.connect(self._save_settings)
+                self.batch_size_combo.currentTextChanged.connect(self._save_settings)
+
+                logging.info("Generation controls settings persistence enabled")
+            else:
+                logging.warning(
+                    "Settings manager not provided to GenerationControlsPanel"  # Updated warning
+                )
+        except Exception as e:
+            logging.error(f"Error setting up settings persistence: {e}")
+
+    def _load_saved_settings(self):
+        """Load saved settings and apply them to the UI controls."""
+        try:
+            # Load each setting with appropriate defaults
+            start_pos = self.settings_manager.get_setting(
+                "generation_controls", "start_position", "Any"
+            )
+            length = self.settings_manager.get_setting(
+                "generation_controls", "length", "16"
+            )
+            level = self.settings_manager.get_setting(
+                "generation_controls", "level", "1 - Basic (No turns)"
+            )
+            intensity = self.settings_manager.get_setting(
+                "generation_controls", "turn_intensity", "1"
+            )
+            mode = self.settings_manager.get_setting(
+                "generation_controls", "generation_mode", "Freeform"
+            )
+            continuity = self.settings_manager.get_setting(
+                "generation_controls", "prop_continuity", "Continuous"
+            )
+            batch_size = self.settings_manager.get_setting(
+                "generation_controls", "batch_size", "5"
+            )
+
+            # Apply settings to UI controls
+            self.start_pos_combo.setCurrentText(start_pos)
+            self.length_combo.setCurrentText(length)
+            self.level_combo.setCurrentText(level)
+            self.intensity_combo.setCurrentText(intensity)
+            self.mode_combo.setCurrentText(mode)
+            self.continuity_combo.setCurrentText(continuity)
+            self.batch_size_combo.setCurrentText(batch_size)
+
+            logging.info(
+                f"Loaded generation controls settings: length={length}, level={level}, mode={mode}"
+            )
+        except Exception as e:
+            logging.error(f"Error loading saved settings: {e}")
+
+    def _save_settings(self):
+        """Save current UI settings."""
+        if not self.settings_manager:
+            return
+
+        try:
+            self.settings_manager.set_setting(
+                "generation_controls",
+                "start_position",
+                self.start_pos_combo.currentText(),
+            )
+            self.settings_manager.set_setting(
+                "generation_controls", "length", self.length_combo.currentText()
+            )
+            self.settings_manager.set_setting(
+                "generation_controls", "level", self.level_combo.currentText()
+            )
+            self.settings_manager.set_setting(
+                "generation_controls",
+                "turn_intensity",
+                self.intensity_combo.currentText(),
+            )
+            self.settings_manager.set_setting(
+                "generation_controls", "generation_mode", self.mode_combo.currentText()
+            )
+            self.settings_manager.set_setting(
+                "generation_controls",
+                "prop_continuity",
+                self.continuity_combo.currentText(),
+            )
+            self.settings_manager.set_setting(
+                "generation_controls", "batch_size", self.batch_size_combo.currentText()
+            )
+
+            logging.debug("Saved generation controls settings")
+        except Exception as e:
+            logging.error(f"Error saving settings: {e}")
 
     def create_generation_controls(self):
         """Create the generation control buttons."""

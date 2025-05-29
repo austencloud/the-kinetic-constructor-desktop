@@ -19,7 +19,9 @@ from main_window.main_widget.sequence_workbench.sequence_beat_frame.start_pos_be
 )
 
 if TYPE_CHECKING:
+    from main_window.main_widget.json_manager.json_manager import JsonManager
     from main_window.main_widget.main_widget import MainWidget
+    from .generate_tab import GenerateTab  # Added import
 
 
 class SequenceBuilderStartPosManager:
@@ -31,8 +33,8 @@ class SequenceBuilderStartPosManager:
     OTHER_KEYS = ["alpha2_alpha2", "beta4_beta4", "gamma12_gamma12"]
     ALPHABETA_KEYS = ["alpha1_alpha1", "beta5_beta5"]
 
-    def __init__(self, main_widget: "MainWidget") -> None:
-        self.main_widget = main_widget
+    def __init__(self, generate_tab: "GenerateTab") -> None:  # Modified signature
+        self.generate_tab = generate_tab  # Store generate_tab
         # This could be parameterized; for now, we assume DIAMOND mode.
         self.grid_mode = DIAMOND
 
@@ -58,14 +60,18 @@ class SequenceBuilderStartPosManager:
                 PictographDataLoader,
             )
 
-            pictograph_data_loader = self.main_widget.app_context.get_service(
+            pictograph_data_loader = self.generate_tab.main_widget.app_context.get_service(  # Changed to use generate_tab
                 PictographDataLoader
             )
             dataset = deepcopy(pictograph_data_loader.get_pictograph_dataset())
         except (AttributeError, KeyError):
             # Fallback: check if main_widget has pictograph_dataset
-            if hasattr(self.main_widget, "pictograph_dataset"):
-                dataset = deepcopy(self.main_widget.pictograph_dataset)
+            if hasattr(
+                self.generate_tab.main_widget, "pictograph_dataset"
+            ):  # Changed to use generate_tab
+                dataset = deepcopy(
+                    self.generate_tab.main_widget.pictograph_dataset
+                )  # Changed to use generate_tab
             else:
                 import logging
 
@@ -84,16 +90,18 @@ class SequenceBuilderStartPosManager:
 
                     # Get sequence workbench through the new widget manager system
                     try:
-                        sequence_workbench = self.main_widget.widget_manager.get_widget(
-                            "sequence_workbench"
-                        )
+                        sequence_workbench = (
+                            self.generate_tab.sequence_workbench
+                        )  # Changed to use generate_tab
                         if sequence_workbench:
                             beat_frame = sequence_workbench.beat_frame
                         else:
                             # Fallback: try direct access for backward compatibility
-                            if hasattr(self.main_widget, "sequence_workbench"):
+                            if hasattr(
+                                self.generate_tab, "sequence_workbench"
+                            ):  # Changed to use generate_tab
                                 beat_frame = (
-                                    self.main_widget.sequence_workbench.beat_frame
+                                    self.generate_tab.sequence_workbench.beat_frame  # Changed to use generate_tab
                                 )
                             else:
                                 import logging
@@ -105,8 +113,10 @@ class SequenceBuilderStartPosManager:
                                 return
                     except AttributeError:
                         # Fallback: try direct access for backward compatibility
-                        if hasattr(self.main_widget, "sequence_workbench"):
-                            beat_frame = self.main_widget.sequence_workbench.beat_frame
+                        if hasattr(self.generate_tab, "sequence_workbench"):
+                            beat_frame = (
+                                self.generate_tab.sequence_workbench.beat_frame
+                            )  # Changed to use generate_tab
                         else:
                             import logging
 
@@ -121,7 +131,9 @@ class SequenceBuilderStartPosManager:
                         deepcopy(pictograph_data)
                     )
                     try:
-                        json_manager = self.main_widget.app_context.json_manager
+                        json_manager:"JsonManager" = (
+                            self.generate_tab.json_manager
+                        )  # Changed to use generate_tab
                         json_manager.start_pos_handler.set_start_position_data(
                             start_pos_beat
                         )
@@ -177,14 +189,18 @@ class SequenceBuilderStartPosManager:
                 PictographDataLoader,
             )
 
-            pictograph_data_loader = self.main_widget.app_context.get_service(
+            pictograph_data_loader = self.generate_tab.main_widget.app_context.get_service(  # Changed to use generate_tab
                 PictographDataLoader
             )
             dataset = deepcopy(pictograph_data_loader.get_pictograph_dataset())
         except (AttributeError, KeyError):
             # Fallback: check if main_widget has pictograph_dataset
-            if hasattr(self.main_widget, "pictograph_dataset"):
-                dataset = deepcopy(self.main_widget.pictograph_dataset)
+            if hasattr(
+                self.generate_tab.main_widget, "pictograph_dataset"
+            ):  # Changed to use generate_tab
+                dataset = deepcopy(
+                    self.generate_tab.main_widget.pictograph_dataset
+                )  # Changed to use generate_tab
             else:
                 import logging
 
@@ -204,16 +220,18 @@ class SequenceBuilderStartPosManager:
 
                     # Get sequence workbench through the new widget manager system
                     try:
-                        sequence_workbench = self.main_widget.widget_manager.get_widget(
-                            "sequence_workbench"
-                        )
+                        sequence_workbench = (
+                            self.generate_tab.sequence_workbench
+                        )  # Changed to use generate_tab
                         if sequence_workbench:
                             beat_frame = sequence_workbench.beat_frame
                         else:
                             # Fallback: try direct access for backward compatibility
-                            if hasattr(self.main_widget, "sequence_workbench"):
+                            if hasattr(
+                                self.generate_tab, "sequence_workbench"
+                            ):  # Changed to use generate_tab
                                 beat_frame = (
-                                    self.main_widget.sequence_workbench.beat_frame
+                                    self.generate_tab.sequence_workbench.beat_frame  # Changed to use generate_tab
                                 )
                             else:
                                 import logging
@@ -225,8 +243,10 @@ class SequenceBuilderStartPosManager:
                                 return
                     except AttributeError:
                         # Fallback: try direct access for backward compatibility
-                        if hasattr(self.main_widget, "sequence_workbench"):
-                            beat_frame = self.main_widget.sequence_workbench.beat_frame
+                        if hasattr(self.generate_tab, "sequence_workbench"):
+                            beat_frame = (
+                                self.generate_tab.sequence_workbench.beat_frame
+                            )  # Changed to use generate_tab
                         else:
                             import logging
 
@@ -241,7 +261,9 @@ class SequenceBuilderStartPosManager:
                         deepcopy(pictograph_data)
                     )
                     try:
-                        json_manager = self.main_widget.app_context.json_manager
+                        json_manager = (
+                            self.generate_tab.json_manager
+                        )  # Changed to use generate_tab
                         json_manager.start_pos_handler.set_start_position_data(
                             start_pos_beat
                         )

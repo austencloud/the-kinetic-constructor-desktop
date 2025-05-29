@@ -270,7 +270,7 @@ class TempBeatFrame(BaseBeatFrame):
         """Get the construct tab using the new MVVM architecture with graceful fallbacks."""
         try:
             # Try to get construct tab through the new coordinator pattern
-            return self.main_widget.get_tab_widget("construct")
+            return self.main_widget.tab_manager.get_tab_widget("construct")
         except AttributeError:
             # Fallback: try through tab_manager for backward compatibility
             try:

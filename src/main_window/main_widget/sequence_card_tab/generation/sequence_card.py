@@ -58,7 +58,6 @@ class SequenceCard(QFrame):
         info_label.setText(info_text)
         info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         info_label.setObjectName("sequenceInfo")
-        layout.addWidget(info_label)
 
         button_layout = QHBoxLayout()
 

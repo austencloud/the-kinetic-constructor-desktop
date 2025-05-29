@@ -97,7 +97,7 @@ class BrowseTabLayoutMonitor(QObject):
 
     def _get_browse_tab(self):
         try:
-            return self.main_widget.get_tab_widget("browse")
+            return self.main_widget.tab_manager.get_tab_widget("browse")
         except:
             try:
                 return getattr(self.main_widget, "browse_tab", None)

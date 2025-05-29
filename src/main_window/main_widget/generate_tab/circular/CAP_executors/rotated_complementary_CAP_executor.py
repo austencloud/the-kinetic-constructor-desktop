@@ -67,8 +67,10 @@ class RotatedComplementaryCAPExecutor(CAPExecutor):
         next_beat_number = last_entry[BEAT] + 1
         slice_size = self.get_slice_size()
 
+        # Use the sequence workbench from the generate tab context
+        # This ensures we use the correct workbench (main or isolated)
         sequence_workbench = (
-            self.circular_sequence_generator.main_widget.sequence_workbench
+            self.circular_sequence_generator.generate_tab.sequence_workbench
         )
         entries_to_add = self.determine_how_many_entries_to_add(sequence_length)
         for _ in range(entries_to_add):

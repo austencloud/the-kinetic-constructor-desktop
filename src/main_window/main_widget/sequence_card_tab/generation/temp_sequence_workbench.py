@@ -10,10 +10,28 @@ from .temp_populator import TempPopulator
 from .temp_beat_factory import TempBeatFactory
 
 
+class MockCurrentWordLabel:
+    """Mock current word label for temporary sequence workbench compatibility."""
+
+    def __init__(self):
+        self.current_word = ""
+        self.simplified_word = ""
+
+    def update_current_word_label(self):
+        """Mock method that does nothing - prevents AttributeError during generation."""
+        pass
+
+    def set_current_word(self, word: str):
+        """Mock method to set current word."""
+        self.current_word = word
+        self.simplified_word = word
+
+
 class TempSequenceWorkbench:
     def __init__(self, temp_beat_frame: "TempBeatFrame"):
         self.beat_frame = temp_beat_frame
         self.temp_beat_frame = temp_beat_frame
+        self.current_word_label = MockCurrentWordLabel()
         self._add_missing_beat_frame_attributes()
 
     def _add_missing_beat_frame_attributes(self):

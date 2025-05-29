@@ -35,7 +35,7 @@ class PictographCollector:
 
     def _collect_from_advanced_start_pos_picker(self) -> list["Pictograph"]:
         # Use dynamic lookup instead of cached reference
-        construct_tab = self.main_widget.get_tab_widget("construct")
+        construct_tab = self.main_widget.tab_manager.get_tab_widget("construct")
         if not construct_tab or not hasattr(construct_tab, "advanced_start_pos_picker"):
             return []
 
@@ -53,7 +53,7 @@ class PictographCollector:
 
     def _collect_from_start_pos_picker(self) -> list["Pictograph"]:
         # Use dynamic lookup instead of cached reference
-        construct_tab = self.main_widget.get_tab_widget("construct")
+        construct_tab = self.main_widget.tab_manager.get_tab_widget("construct")
         if not construct_tab or not hasattr(construct_tab, "start_pos_picker"):
             return []
 
@@ -110,7 +110,7 @@ class PictographCollector:
         return pictographs
 
     def _collect_from_option_picker(self) -> list["Pictograph"]:
-        construct_tab = self.main_widget.get_tab_widget("construct")
+        construct_tab = self.main_widget.tab_manager.get_tab_widget("construct")
         if construct_tab and hasattr(construct_tab, "option_picker"):
             return [
                 option for option in construct_tab.option_picker.option_pool if option
@@ -153,7 +153,7 @@ class PictographCollector:
 
     def _collect_from_lessons(self) -> list["Pictograph"]:
         # Use dynamic lookup instead of cached reference
-        learn_tab = self.main_widget.get_tab_widget("learn")
+        learn_tab = self.main_widget.tab_manager.get_tab_widget("learn")
         if not learn_tab or not hasattr(learn_tab, "lessons"):
             return []
 

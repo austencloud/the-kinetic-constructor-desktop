@@ -175,10 +175,10 @@ class ImageGenerationWorker(QThread):
             options = {
                 "add_beat_numbers": True,
                 "add_reversal_symbols": True,
-                "add_user_info": False,
-                "add_word": False,
-                "add_difficulty_level": False,
-                "include_start_position": False,
+                "add_user_info": True,
+                "add_word": True,
+                "add_difficulty_level": True,
+                "include_start_position": True,  # Enable start position for approval dialog
                 "combined_grids": False,
                 "additional_height_top": 0,
                 "additional_height_bottom": 0,
@@ -204,12 +204,12 @@ class ImageGenerationWorker(QThread):
         try:
             logging.info("Attempting minimal options image generation")
             minimal_options = {
-                "add_beat_numbers": False,
-                "add_reversal_symbols": False,
-                "add_user_info": False,
-                "add_word": False,
-                "add_difficulty_level": False,
-                "include_start_position": False,
+                "add_beat_numbers": True,
+                "add_reversal_symbols": True,
+                "add_user_info": True,
+                "add_word": True,
+                "add_difficulty_level": True,
+                "include_start_position": True,  # Enable start position for approval dialog
                 "combined_grids": False,
                 "additional_height_top": 0,
                 "additional_height_bottom": 0,

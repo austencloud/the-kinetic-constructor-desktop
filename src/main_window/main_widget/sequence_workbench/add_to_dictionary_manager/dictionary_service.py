@@ -195,7 +195,7 @@ class DictionaryService:
         """Get the browse tab using the new dependency injection pattern with graceful fallbacks."""
         try:
             # Try to get browse tab through the new coordinator pattern
-            return self.main_widget.get_tab_widget("browse")
+            return self.main_widget.tab_manager.get_tab_widget("browse")
         except AttributeError:
             # Fallback: try through tab_manager for backward compatibility
             try:

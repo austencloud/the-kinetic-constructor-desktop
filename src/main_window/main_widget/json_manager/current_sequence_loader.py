@@ -1,6 +1,7 @@
 import json
 from data.constants import DIAMOND, GRID_MODE
 from utils.path_helpers import get_user_editable_resource_path
+from .default_sequence_provider import DefaultSequenceProvider
 
 
 class CurrentSequenceLoader:
@@ -25,19 +26,4 @@ class CurrentSequenceLoader:
 
     def get_default_sequence(self) -> list[dict]:
         """Return a default sequence if JSON is missing, empty, or invalid."""
-        return [
-            {
-                "word": "",
-                "author": "",  # Placeholder, will be updated later
-                "level": 0,
-                "prop_type": "",  # Placeholder, will be updated later
-                GRID_MODE: DIAMOND,
-                "is_circular": False,
-                "can_be_CAP": False,
-                "is_strict_rotated_CAP": False,
-                "is_strict_mirrored_CAP": False,
-                "is_strict_swapped_CAP": False,
-                "is_mirrored_swapped_CAP": False,
-                "is_rotated_swapped_CAP": False,
-            }
-        ]
+        return DefaultSequenceProvider.get_default_sequence()

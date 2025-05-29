@@ -2,6 +2,7 @@
 from enum import Enum
 from typing import TYPE_CHECKING, Optional
 from PyQt6.QtCore import QObject, pyqtSignal
+import logging
 
 if TYPE_CHECKING:
     from main_window.main_widget.sequence_card_tab.tab import SequenceCardTab
@@ -41,11 +42,23 @@ class SequenceCardModeManager(QObject):
         if not self._initialization_complete:
             self._initialization_complete = True
 
+            # CRITICAL FIX: Prevent automatic mode switching during initialization
+            # This prevents automatic generation from being triggered
+            if (
+                hasattr(self.sequence_card_tab, "is_initializing")
+                and self.sequence_card_tab.is_initializing
+            ):
+                logging.info(
+                    "BLOCKED: Mode switching during sequence card tab initialization"
+                )
+                return
+
             # Now it's safe to load and apply saved mode preference
             saved_mode = self.load_mode_preference()
             if saved_mode != self.current_mode:
                 # Only switch if the saved mode is different and available
                 if self.is_mode_available(saved_mode):
+                    logging.info(f"Auto-switching to saved mode: {saved_mode.value}")
                     self.switch_mode(saved_mode)
 
     def is_dictionary_mode(self) -> bool:

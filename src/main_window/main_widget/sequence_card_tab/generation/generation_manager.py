@@ -188,6 +188,16 @@ class GenerationManager(QObject):
         return self.generate_tab is not None
 
     def generate_single_sequence(self, params: GenerationParams) -> bool:
+        # CRITICAL FIX: Prevent generation during initialization
+        if (
+            hasattr(self.sequence_card_tab, "is_initializing")
+            and self.sequence_card_tab.is_initializing
+        ):
+            logging.info(
+                "BLOCKED: Generation request during sequence card tab initialization"
+            )
+            return False
+
         if not self.is_available():
             self.generation_failed.emit("Generate tab is not available")
             return False
@@ -230,6 +240,16 @@ class GenerationManager(QObject):
             self.generation_in_progress = False
 
     def generate_batch(self, params: GenerationParams, count: int) -> bool:
+        # CRITICAL FIX: Prevent generation during initialization
+        if (
+            hasattr(self.sequence_card_tab, "is_initializing")
+            and self.sequence_card_tab.is_initializing
+        ):
+            logging.info(
+                "BLOCKED: Batch generation request during sequence card tab initialization"
+            )
+            return False
+
         if not self.is_available():
             self.generation_failed.emit("Generate tab is not available")
             return False
@@ -512,6 +532,15 @@ class GenerationManager(QObject):
         self, base_params: GenerationParams
     ) -> GenerationParams:
         consistent_params = copy.deepcopy(base_params)
+
+        # For batch generation, always use random start positions to ensure natural variation
+        # Even if user selected a specific start position for single generation
+        if self._current_batch_size > 1:
+            consistent_params.start_position = None
+            logging.info(
+                f"Batch generation: forcing random start positions for natural variation"
+            )
+
         logging.info(
             f"Using consistent parameters for all sequences in batch: {consistent_params.__dict__}"
         )
@@ -539,8 +568,15 @@ class GenerationManager(QObject):
         sequence_data = generated_data.sequence_data
 
         # Count actual beats (excluding metadata and start position)
+        # Start positions have beat=0 or sequence_start_position=True, actual beats have beat >= 1
         beat_count = len(
-            [item for item in sequence_data if item.get("beat") is not None]
+            [
+                item
+                for item in sequence_data
+                if item.get("beat") is not None
+                and item.get("beat") > 0  # Exclude start position (beat=0)
+                and not item.get("sequence_start_position", False)  # Extra safety check
+            ]
         )
 
         if beat_count != params.length:

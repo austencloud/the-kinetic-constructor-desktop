@@ -86,7 +86,7 @@ class FreeFormSequenceBuilder(BaseSequenceBuilder):
                 break
 
             self.sequence.append(next_pictograph)
-            self.sequence_workbench.beat_frame.beat_factory.create_new_beat_and_add_to_sequence(
+            self.generate_tab.sequence_workbench.beat_frame.beat_factory.create_new_beat_and_add_to_sequence(
                 next_pictograph,
                 override_grow_sequence=True,
                 update_image_export_preview=False,
@@ -286,7 +286,7 @@ class FreeFormSequenceBuilder(BaseSequenceBuilder):
         """Get the construct tab using the new MVVM architecture with graceful fallbacks."""
         try:
             # Try to get construct tab through the new coordinator pattern
-            return self.main_widget.get_tab_widget("construct")
+            return self.main_widget.tab_manager.get_tab_widget("construct")
         except AttributeError:
             # Fallback: try through tab_manager for backward compatibility
             try:
@@ -302,6 +302,16 @@ class FreeFormSequenceBuilder(BaseSequenceBuilder):
 
     def _update_construct_tab_options(self):
         """Update construct tab options using the new MVVM architecture with graceful fallbacks."""
+        # Skip construct tab updates during isolated generation to prevent context conflicts
+        if hasattr(self.generate_tab, "original_sequence_workbench"):
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.debug(
+                "Skipping construct tab options update during isolated generation"
+            )
+            return
+
         construct_tab = self._get_construct_tab()
         if (
             construct_tab

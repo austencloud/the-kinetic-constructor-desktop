@@ -27,13 +27,13 @@ from data.constants import (
 )
 
 from .sequence_builder_start_position_manager import SequenceBuilderStartPosManager
-from main_window.main_widget.sequence_workbench.sequence_workbench import (
-    SequenceWorkbench,
-)
 from interfaces.json_manager_interface import IJsonManager
 
 if TYPE_CHECKING:
     from .generate_tab import GenerateTab
+    from main_window.main_widget.sequence_workbench.sequence_workbench import (
+        SequenceWorkbench,
+    )  # Ensure SequenceWorkbench is imported if not already
 
 
 class BaseSequenceBuilder:
@@ -45,48 +45,35 @@ class BaseSequenceBuilder:
 
     def __init__(self, generate_tab: "GenerateTab"):
         self.generate_tab = generate_tab
-        self.sequence_workbench: SequenceWorkbench = None
+        # self.sequence_workbench: SequenceWorkbench = None # Removed: Will use generate_tab.sequence_workbench
 
         self.main_widget = generate_tab.main_widget
-        self.json_manager = generate_tab.json_manager
+        self.json_manager: IJsonManager = (
+            generate_tab.json_manager
+        )  # Ensure type hint if IJsonManager is appropriate
         self.validation_engine = self.json_manager.ori_validation_engine
         self.ori_calculator = self.json_manager.ori_calculator
-        self.start_pos_manager = SequenceBuilderStartPosManager(self.main_widget)
+        self.start_pos_manager = SequenceBuilderStartPosManager(
+            self.generate_tab
+        )  # Changed to pass generate_tab
 
     def initialize_sequence(
         self, length: int, CAP_type: str = "", start_position: str = None
     ) -> None:
-        if not self.sequence_workbench:
-            # Get sequence workbench through the new widget manager system
-            try:
-                self.sequence_workbench = self.main_widget.widget_manager.get_widget(
-                    "sequence_workbench"
-                )
-                if not self.sequence_workbench:
-                    # Fallback: try direct access for backward compatibility
-                    if hasattr(self.main_widget, "sequence_workbench"):
-                        self.sequence_workbench = self.main_widget.sequence_workbench
-                    else:
-                        import logging
+        # Directly use the sequence_workbench from generate_tab
+        sequence_workbench: "SequenceWorkbench" = self.generate_tab.sequence_workbench
+        if not sequence_workbench:
+            import logging
 
-                        logger = logging.getLogger(__name__)
-                        logger.warning(
-                            "sequence_workbench not available in BaseSequenceBuilder"
-                        )
-                        return
-            except AttributeError:
-                # Fallback: try direct access for backward compatibility
-                if hasattr(self.main_widget, "sequence_workbench"):
-                    self.sequence_workbench = self.main_widget.sequence_workbench
-                else:
-                    import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                "sequence_workbench not available in BaseSequenceBuilder via generate_tab"
+            )
+            return
 
-                    logger = logging.getLogger(__name__)
-                    logger.warning(
-                        "sequence_workbench not available in BaseSequenceBuilder"
-                    )
-                    return
-        self.sequence = self.json_manager.loader_saver.load_current_sequence()
+        # Use the json_manager from generate_tab
+        json_manager = self.generate_tab.json_manager
+        self.sequence = json_manager.loader_saver.load_current_sequence()
 
         if len(self.sequence) == 1:
             if start_position:
@@ -97,13 +84,20 @@ class BaseSequenceBuilder:
             else:
                 # Add random start position (existing behavior)
                 self.start_pos_manager.add_start_position(CAP_type)
-            self.sequence = self.json_manager.loader_saver.load_current_sequence()
+            # Reload sequence after start_pos_manager might have modified it via its own json_manager
+            self.sequence = json_manager.loader_saver.load_current_sequence()
 
         try:
-            self.sequence_workbench.beat_frame.populator.modify_layout_for_chosen_number_of_beats(
+            sequence_workbench.beat_frame.populator.modify_layout_for_chosen_number_of_beats(
                 int(length)
             )
-        except Exception:
+        except Exception as e:  # Added specific exception logging
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.error(
+                f"Error modifying layout for number of beats: {e}", exc_info=True
+            )
             raise
 
     def update_start_orientations(

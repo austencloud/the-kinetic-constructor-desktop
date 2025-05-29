@@ -75,8 +75,10 @@ class StrictRotatedCAPExecutor(CAPExecutor):
         if not slice_size:
             slice_size = self.get_slice_size()
 
+        # Use the sequence workbench from the generate tab context
+        # This ensures we use the correct workbench (main or isolated)
         sequence_workbench = (
-            self.circular_sequence_generator.main_widget.sequence_workbench
+            self.circular_sequence_generator.generate_tab.sequence_workbench
         )
         if slice_size == "halved":
             entries_to_add = sequence_length

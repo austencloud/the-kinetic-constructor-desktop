@@ -40,6 +40,11 @@ class CircularSequenceBuilder(BaseSequenceBuilder):
             for cap_type in CAPType
         }
 
+    @property
+    def sequence_workbench(self):
+        """Delegate to the generate_tab's sequence_workbench for context-aware access."""
+        return self.generate_tab.sequence_workbench
+
     def build_sequence(
         self, length, turn_intensity, level, slice_size, CAP_type, prop_continuity
     ):
@@ -50,12 +55,21 @@ class CircularSequenceBuilder(BaseSequenceBuilder):
             )
         finally:
             QApplication.restoreOverrideCursor()
-            self.sequence_workbench.beat_frame.emit_update_image_export_preview()
+            self.generate_tab.sequence_workbench.beat_frame.emit_update_image_export_preview()
 
     def _build_sequence_internal(
-        self, length, turn_intensity, level, slice_size, CAP_type, prop_continuity
+        self,
+        length,
+        turn_intensity,
+        level,
+        slice_size,
+        CAP_type,
+        prop_continuity,
+        start_position=None,
     ):
-        self.initialize_sequence(length, CAP_type=CAP_type)
+        self.initialize_sequence(
+            length, start_position=start_position, CAP_type=CAP_type
+        )
         blue_rot_dir, red_rot_dir = RotationDeterminer.get_rotation_dirs(
             prop_continuity
         )
@@ -120,7 +134,7 @@ class CircularSequenceBuilder(BaseSequenceBuilder):
 
     def _add_pictograph_to_sequence(self, next_pictograph):
         self.sequence.append(next_pictograph)
-        self.sequence_workbench.beat_frame.beat_factory.create_new_beat_and_add_to_sequence(
+        self.generate_tab.sequence_workbench.beat_frame.beat_factory.create_new_beat_and_add_to_sequence(
             next_pictograph,
             override_grow_sequence=True,
             update_image_export_preview=False,
@@ -287,9 +301,19 @@ class CircularSequenceBuilder(BaseSequenceBuilder):
 
     def _update_construct_tab_options(self):
         """Update construct tab options using the new MVVM architecture with graceful fallbacks."""
+        # Skip construct tab updates during isolated generation to prevent context conflicts
+        if hasattr(self.generate_tab, "original_sequence_workbench"):
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.debug(
+                "Skipping construct tab options update during isolated generation"
+            )
+            return
+
         try:
             # Try to get construct tab through the new coordinator pattern
-            construct_tab = self.main_widget.get_tab_widget("construct")
+            construct_tab = self.main_widget.tab_manager.get_tab_widget("construct")
             if (
                 construct_tab
                 and hasattr(construct_tab, "option_picker")

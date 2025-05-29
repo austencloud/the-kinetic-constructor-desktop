@@ -1,7 +1,7 @@
 from PyQt6.QtCore import pyqtSignal, QObject, QTimer
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtWidgets import QApplication
-from typing import List, Dict
+from typing import TYPE_CHECKING, List, Dict
 import logging
 import os
 import json
@@ -11,12 +11,15 @@ from ...sequence_card import SequenceCard
 from .fallback_image_provider import FallbackImageProvider
 from .progress_tracker import ProgressTracker
 
+if TYPE_CHECKING:
+    from main_window.main_widget.main_widget import MainWidget
+
 
 class SynchronousImageGenerator(QObject):
     image_loaded = pyqtSignal()
     all_images_processed = pyqtSignal()
 
-    def __init__(self, main_widget):
+    def __init__(self, main_widget: "MainWidget"):
         super().__init__()
         self.main_widget = main_widget
         self.fallback_provider = FallbackImageProvider()
@@ -90,7 +93,9 @@ class SynchronousImageGenerator(QObject):
             sequence_card_tab = None
             try:
                 # Try the new coordinator pattern first
-                sequence_card_tab = self.main_widget.get_tab_widget("sequence_card")
+                sequence_card_tab = self.main_widget.tab_manager.get_tab_widget(
+                    "sequence_card"
+                )
             except AttributeError:
                 try:
                     # Try through tab_manager with correct method name
@@ -146,8 +151,37 @@ class SynchronousImageGenerator(QObject):
             if not image_creator:
                 return None
 
-            # Create image using the correct method name
-            qimage = image_creator.create_sequence_image(current_sequence)
+            # Extract word and difficulty level from sequence data for proper display
+            override_word = (
+                sequence_data.word if hasattr(sequence_data, "word") else None
+            )
+            override_difficulty_level = (
+                sequence_data.params.level
+                if hasattr(sequence_data, "params")
+                and hasattr(sequence_data.params, "level")
+                else None
+            )
+
+            # Create image using the correct method name with override values
+            # Use explicit options to ensure start positions are included in approval dialog
+            options = {
+                "add_beat_numbers": True,
+                "add_reversal_symbols": True,
+                "add_user_info": True,
+                "add_word": True,
+                "add_difficulty_level": True,
+                "include_start_position": True,  # Enable start position for approval dialog
+                "combined_grids": False,
+                "additional_height_top": 0,
+                "additional_height_bottom": 0,
+            }
+
+            qimage = image_creator.create_sequence_image(
+                current_sequence,
+                options=options,
+                override_word=override_word,
+                override_difficulty_level=override_difficulty_level,
+            )
 
             # Convert QImage to QPixmap
             from PyQt6.QtGui import QPixmap

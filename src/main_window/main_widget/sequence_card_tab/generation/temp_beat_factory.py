@@ -37,6 +37,18 @@ class TempBeatFactory:
                 new_beat.state.blue_reversal = reversal_info.get("blue_reversal", False)
                 new_beat.state.red_reversal = reversal_info.get("red_reversal", False)
 
+            # CRITICAL FIX: Ensure beat has a proper view to prevent NoneType errors
+            if not hasattr(new_beat, "view") or new_beat.view is None:
+                # Create a minimal view object to prevent null reference errors
+                class MinimalBeatView:
+                    def __init__(self):
+                        self.is_start_pos = False
+                        self.is_filled = True
+                        self.is_selected = False
+
+                new_beat.view = MinimalBeatView()
+                logging.info("Created minimal view for beat to prevent NoneType errors")
+
             self.beat_frame.add_beat_to_sequence(new_beat)
 
             for motion in new_beat.elements.motion_set.values():

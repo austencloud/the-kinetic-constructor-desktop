@@ -28,7 +28,7 @@ class GenerateTabFontColorUpdater(BaseFontColorUpdater):
         """Get the generate tab using the new MVVM architecture with graceful fallbacks."""
         try:
             # Try to get generate tab through the new coordinator pattern
-            return self.main_widget.get_tab_widget("generate")
+            return self.main_widget.tab_manager.get_tab_widget("generate")
         except AttributeError:
             # Fallback: try through tab_manager for backward compatibility
             try:
