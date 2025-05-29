@@ -3,10 +3,11 @@ from PyQt6.QtWidgets import QWidget
 from PyQt6.QtCore import QTimer
 import logging
 
-from main_window.main_widget.browse_tab.browse_tab_filter_controller import (
-    BrowseTabFilterController,
+from main_window.main_widget.browse_tab.controller import BrowseTabFilterController
+from main_window.main_widget.browse_tab.deletion_handler.browse_tab_deletion_handler import (
+    BrowseTabDeletionHandler,
 )
-from main_window.main_widget.browse_tab.browse_tab_persistence_manager import (
+from main_window.main_widget.browse_tab.persistence_manager import (
     BrowseTabPersistenceManager,
 )
 from main_window.main_widget.metadata_extractor import MetaDataExtractor
@@ -14,13 +15,12 @@ from interfaces.settings_manager_interface import ISettingsManager
 from interfaces.json_manager_interface import IJsonManager
 
 from .sequence_picker.sequence_picker import SequencePicker
-from .browse_tab_filter_manager import BrowseTabFilterManager
-from .browse_tab_getter import BrowseTabGetter
-from .browse_tab_ui_updater import BrowseTabUIUpdater
-from .deletion_handler.browse_tab_deletion_handler import BrowseTabDeletionHandler
-from .browse_tab_selection_handler import BrowseTabSelectionHandler
+from .filter_manager import BrowseTabFilterManager
+from .getter import BrowseTabGetter
+from .ui_updater import BrowseTabUIUpdater
+from .selection_handler import BrowseTabSelectionHandler
 from .sequence_viewer.sequence_viewer import SequenceViewer
-from .browse_tab_state import BrowseTabState
+from .state import BrowseTabState
 from .lazy_loading.browse_tab_lazy_loader import BrowseTabLazyLoader
 
 if TYPE_CHECKING:

@@ -345,7 +345,6 @@ class ComponentStyler:
         .modern-thumbnail-container:hover {{
             background-color: {hover_bg};
             border-color: {hover_border};
-            transform: translateY(-2px);
         }}
 
         /* Thumbnail Header */
@@ -372,7 +371,7 @@ class ComponentStyler:
         border_hover = self.color_manager.get_color("primary", 0.4)
         border_glow = self.color_manager.get_color("primary", 0.2)
         text_color = self.color_manager.get_color("text_primary")
-        shadow_color = self.color_manager.get_color("shadow", 0.1)
+        shadow_color = self.color_manager.get_color("background", 0.1)
 
         return f"""
         /* Enhanced Glassmorphism Thumbnail Container */

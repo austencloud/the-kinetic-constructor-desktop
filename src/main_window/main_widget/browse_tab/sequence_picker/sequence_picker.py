@@ -1,12 +1,12 @@
 from typing import TYPE_CHECKING
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout
 from .filter_stack.sequence_picker_filter_stack import SequencePickerFilterStack
-from .sequence_picker_section_manager import SequencePickerSectionManager
-from .sequence_picker_sorter import SequencePickerSorter
+from .section_manager import SequencePickerSectionManager
+from .sorter import SequencePickerSorter
 from .control_panel.sequence_picker_control_panel import SequencePickerControlPanel
-from .sequence_picker_progress_bar import SequencePickerProgressBar
+from .progress_bar import SequencePickerProgressBar
 from .nav_sidebar.sequence_picker_nav_sidebar import SequencePickerNavSidebar
-from .sequence_picker_scroll_widget import SequencePickerScrollWidget
+from .scroll_widget import SequencePickerScrollWidget
 
 if TYPE_CHECKING:
     from ..browse_tab import BrowseTab

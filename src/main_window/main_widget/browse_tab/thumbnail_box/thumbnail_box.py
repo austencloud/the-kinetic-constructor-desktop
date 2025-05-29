@@ -1,19 +1,19 @@
 from typing import TYPE_CHECKING
 from PyQt6.QtWidgets import QVBoxLayout, QWidget
 
-from main_window.main_widget.browse_tab.thumbnail_box.thumbnail_box_favorites_manager import (
+from main_window.main_widget.browse_tab.thumbnail_box.favorites_manager import (
     ThumbnailBoxFavoritesManager,
 )
-from main_window.main_widget.browse_tab.thumbnail_box.thumbnail_box_nav_buttons_widget import (
+from main_window.main_widget.browse_tab.thumbnail_box.nav_buttons_widget import (
     ThumbnailBoxNavButtonsWidget,
 )
 from main_window.main_widget.browse_tab.thumbnail_box.thumbnail_image_label import (
     ThumbnailImageLabel,
 )
 
-from .thumbnail_box_header import ThumbnailBoxHeader
+from .header import ThumbnailBoxHeader
 from .variation_number_label import VariationNumberLabel
-from .thumbnail_box_state import ThumbnailBoxState
+from .state import ThumbnailBoxState
 
 if TYPE_CHECKING:
     from main_window.main_widget.browse_tab.browse_tab import BrowseTab
@@ -139,13 +139,14 @@ class ThumbnailBox(QWidget):
             # Emergency fallback
             return 400  # Reasonable default width
 
-    def update_thumbnails(self, thumbnails=[]):
+    def update_thumbnails(self, thumbnails=None):
+        if thumbnails is None:
+            thumbnails = []
         self.state.update_thumbnails(thumbnails)
         self.nav_buttons_widget.state.thumbnails = thumbnails
 
         if self == self.browse_tab.sequence_viewer.state.matching_thumbnail_box:
             self.browse_tab.sequence_viewer.update_thumbnails(self.state.thumbnails)
 
-        # self.variation_number_label.update_index(self.state.current_index)
-        self.header.difficulty_label.update_difficulty_label()  # 🆕 Update difficulty!
+        self.header.difficulty_label.update_difficulty_label()
         self.image_label.update_thumbnail(self.state.current_index)

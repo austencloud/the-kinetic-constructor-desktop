@@ -212,6 +212,18 @@ class TempBeatFrame(BaseBeatFrame):
     def update_current_word(self):
         self.current_word = self.get.current_word()
 
+    def load_sequence_data(self, sequence_data: list[dict]) -> None:
+        """
+        Load sequence data into the beat frame.
+
+        This is an alias for load_sequence() to maintain compatibility with
+        the synchronous image generator and other components that expect this method name.
+
+        Args:
+            sequence_data: A list of dictionaries containing the sequence data
+        """
+        self.load_sequence(sequence_data)
+
     def load_sequence(self, sequence: list[dict]) -> None:
         """
         Load a sequence into the beat frame.

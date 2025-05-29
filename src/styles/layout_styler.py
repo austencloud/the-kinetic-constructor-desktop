@@ -16,30 +16,30 @@ if TYPE_CHECKING:
 class LayoutStyler:
     """
     Handles styling for complex layouts and containers.
-    
+
     Responsibilities:
     - Dialog and container styling
     - Layout-specific CSS generation
     - Unified styling for complex layouts
     - Responsive styling utilities
     """
-    
+
     def __init__(
-        self, 
-        color_manager: "ColorManager", 
+        self,
+        color_manager: "ColorManager",
         typography_manager: "TypographyManager",
-        component_styler: "ComponentStyler"
+        component_styler: "ComponentStyler",
     ):
         self.color_manager = color_manager
         self.typography_manager = typography_manager
         self.component_styler = component_styler
         self.logger = logging.getLogger(__name__)
         self.logger.debug("LayoutStyler initialized")
-    
+
     def create_sidebar_style(self) -> str:
         """
         Create modern glassmorphism sidebar styling.
-        
+
         Returns:
             CSS stylesheet string for sidebars
         """
@@ -50,15 +50,15 @@ class LayoutStyler:
         text_primary = self.color_manager.get_color("text_primary")
         primary_color = self.color_manager.get_color("primary", 0.3)
         primary_light = self.color_manager.get_color("primary_light", 0.2)
-        
+
         spacing_md = self.component_styler.get_spacing("md")
         spacing_sm = self.component_styler.get_spacing("sm")
         spacing_lg = self.component_styler.get_spacing("lg")
         spacing_xs = self.component_styler.get_spacing("xs")
-        
+
         radius_lg = self.component_styler.get_radius("lg")
         radius_md = self.component_styler.get_radius("md")
-        
+
         font_size = self.typography_manager.get_font_size("body_medium")
 
         return f"""
@@ -105,11 +105,11 @@ class LayoutStyler:
             outline: none;
         }}
         """
-    
+
     def create_dialog_style(self) -> str:
         """
         Create modern dialog styling.
-        
+
         Returns:
             CSS stylesheet string for dialogs
         """
@@ -124,11 +124,11 @@ class LayoutStyler:
             border-radius: {radius_xl}px;
         }}
         """
-    
+
     def create_unified_tab_content_style(self) -> str:
         """
         Create comprehensive glassmorphism styling for all tab content.
-        
+
         Returns:
             CSS stylesheet string for unified tab content
         """
@@ -140,7 +140,7 @@ class LayoutStyler:
         text_primary = self.color_manager.get_color("text_primary")
         primary_color = self.color_manager.get_color("primary", 0.8)
         text_muted = self.color_manager.get_color("text_muted")
-        
+
         # Get spacing and radius
         spacing_lg = self.component_styler.get_spacing("lg")
         spacing_md = self.component_styler.get_spacing("md")
@@ -148,7 +148,7 @@ class LayoutStyler:
         radius_lg = self.component_styler.get_radius("lg")
         radius_md = self.component_styler.get_radius("md")
         radius_sm = self.component_styler.get_radius("sm")
-        
+
         # Get typography
         heading_size = self.typography_manager.get_font_size("heading_small")
         body_size = self.typography_manager.get_font_size("body_medium")
@@ -218,11 +218,11 @@ class LayoutStyler:
                 stop:1 {self.color_manager.get_color('surface_lighter', 0.4)});
         }}
         """
-    
+
     def create_unified_button_style(self) -> str:
         """
         Create unified button styling for layouts.
-        
+
         Returns:
             CSS stylesheet string for unified buttons
         """
@@ -232,11 +232,11 @@ class LayoutStyler:
         text_primary = self.color_manager.get_color("text_primary")
         surface_light = self.color_manager.get_color("surface_light", 0.3)
         text_muted = self.color_manager.get_color("text_muted")
-        
+
         spacing_sm = self.component_styler.get_spacing("sm")
         spacing_lg = self.component_styler.get_spacing("lg")
         radius_md = self.component_styler.get_radius("md")
-        
+
         body_size = self.typography_manager.get_font_size("body_medium")
 
         return f"""
@@ -260,7 +260,6 @@ class LayoutStyler:
                 stop:0 {primary_light},
                 stop:1 {primary_color});
             border: 1px solid {self.color_manager.get_color('primary_light', 0.7)};
-            transform: translateY(-1px);
         }}
 
         QPushButton:pressed {{
@@ -268,7 +267,6 @@ class LayoutStyler:
                 stop:0 {self.color_manager.get_color('primary_dark', 0.9)},
                 stop:1 {self.color_manager.get_color('primary_dark', 0.7)});
             border: 1px solid {self.color_manager.get_color('primary_dark', 0.8)};
-            transform: translateY(1px);
         }}
 
         QPushButton:disabled {{
@@ -277,11 +275,11 @@ class LayoutStyler:
             border: 1px solid {self.color_manager.get_color('border', 0.2)};
         }}
         """
-    
+
     def create_unified_checkbox_style(self) -> str:
         """
         Create unified checkbox styling for layouts.
-        
+
         Returns:
             CSS stylesheet string for unified checkboxes
         """
@@ -289,11 +287,11 @@ class LayoutStyler:
         surface_color = self.color_manager.get_color("surface", 0.6)
         border_color = self.color_manager.get_color("border", 0.5)
         primary_color = self.color_manager.get_color("primary")
-        
+
         spacing_md = self.component_styler.get_spacing("md")
         spacing_sm = self.component_styler.get_spacing("sm")
         radius_sm = self.component_styler.get_radius("sm")
-        
+
         body_size = self.typography_manager.get_font_size("body_medium")
 
         return f"""

@@ -10,7 +10,7 @@ from core.migration_adapters import AppContextAdapter
 from .construct_tab.construct_tab_factory import ConstructTabFactory
 from .generate_tab.generate_tab_factory import GenerateTabFactory
 from .learn_tab.learn_tab_factory import LearnTabFactory
-from .browse_tab.browse_tab_factory import BrowseTabFactory
+from .browse_tab.factory import BrowseTabFactory
 from .main_background_widget.main_background_widget_factory import (
     MainBackgroundWidgetFactory,
 )

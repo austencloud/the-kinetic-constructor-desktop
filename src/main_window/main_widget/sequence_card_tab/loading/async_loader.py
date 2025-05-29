@@ -138,7 +138,7 @@ class AsyncImageLoader(QObject):
 
     def get_cached_image(self, path: str) -> Optional[QPixmap]:
         """
-        Get an image from the cache.
+        Get an image from the cache using content-based key.
 
         Args:
             path: Path to the image
@@ -147,7 +147,63 @@ class AsyncImageLoader(QObject):
             QPixmap or None if not in cache
         """
         with self.lock:
-            return self.cache.get(path)
+            content_key = self._create_content_based_key(path)
+            return self.cache.get(content_key)
+
+    def get_cached_images_batch(self, paths: List[str]) -> Dict[str, QPixmap]:
+        """
+        Get multiple cached images in a single operation for instant display.
+
+        This method enables instant batch retrieval of cached images,
+        bypassing the async loading system for better performance.
+
+        Args:
+            paths: List of image paths to retrieve
+
+        Returns:
+            Dictionary mapping paths to cached pixmaps (only includes cache hits)
+        """
+        cached_images = {}
+        with self.lock:
+            for path in paths:
+                content_key = self._create_content_based_key(path)
+                cached_pixmap = self.cache.get(content_key)
+                if cached_pixmap is not None:
+                    cached_images[path] = cached_pixmap
+        return cached_images
+
+    def _create_content_based_key(self, image_path: str) -> str:
+        """
+        Create a content-based cache key for async loading.
+
+        This ensures the same image content gets the same cache key
+        regardless of how it's accessed (Show All vs specific sequence length).
+
+        Args:
+            image_path: Path to the image file
+
+        Returns:
+            Content-based cache key
+        """
+        import os
+        import hashlib
+
+        try:
+            # Get file stats for content identification
+            stat = os.stat(image_path)
+            file_size = stat.st_size
+            mtime = stat.st_mtime
+
+            # Use filename (without path) + size + mtime for content ID
+            filename = os.path.basename(image_path)
+            content_data = f"async_{filename}_{file_size}_{mtime}"
+
+            # Create a hash for the cache key
+            return hashlib.md5(content_data.encode()).hexdigest()[:16]
+
+        except OSError:
+            # Fallback to path-based hash if file stats unavailable
+            return hashlib.md5(f"async_{image_path}".encode()).hexdigest()[:16]
 
     def _worker(self):
         """Worker thread function."""
@@ -210,9 +266,10 @@ class AsyncImageLoader(QObject):
             # Convert to pixmap
             pixmap = QPixmap.fromImage(image)
 
-            # Add to cache
+            # Add to cache using content-based key
             with self.lock:
-                self.cache[request.path] = pixmap
+                content_key = self._create_content_based_key(request.path)
+                self.cache[content_key] = pixmap
 
             # Emit the signal
             self.image_loaded.emit(request.path, pixmap)

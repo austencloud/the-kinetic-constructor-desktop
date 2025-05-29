@@ -43,6 +43,19 @@ class ComponentInitializationManager:
 
         self._components_initialized = False
 
+        # Initialize AppContextAdapter early to prevent warnings
+        self._setup_legacy_compatibility()
+
+    def _setup_legacy_compatibility(self) -> None:
+        """Set up legacy compatibility adapter early to prevent warnings."""
+        try:
+            from core.migration_adapters import setup_legacy_compatibility
+
+            setup_legacy_compatibility(self.app_context)
+            self.logger.info("Legacy compatibility adapter initialized")
+        except Exception as e:
+            self.logger.warning(f"Failed to initialize legacy compatibility: {e}")
+
     def initialize_all_components(self) -> None:
         """
         Initialize all components in the correct order.

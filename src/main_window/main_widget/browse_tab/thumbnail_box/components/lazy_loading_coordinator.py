@@ -14,10 +14,10 @@ from PyQt6.QtCore import QObject, QTimer, QSize, pyqtSignal
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtWidgets import QWidget
 
-if TYPE_CHECKING:
-    from ..lazy_loading.browse_tab_lazy_loader import BrowseTabLazyLoader
-    from ..lazy_loading.loading_indicator import LoadingIndicator
 
+if TYPE_CHECKING:
+    from lazy_loading.browse_tab_lazy_loader import BrowseTabLazyLoader
+    from lazy_loading.loading_indicator import LoadingIndicator
 
 class LazyLoadingCoordinator(QObject):
     """

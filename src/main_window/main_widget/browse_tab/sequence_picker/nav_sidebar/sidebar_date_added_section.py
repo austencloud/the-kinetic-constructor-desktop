@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import QLabel
 from PyQt6.QtCore import Qt
 from .base_sidebar_section import BaseSidebarSection
-from .sidebar_button import SidebarButton
+from .button.sidebar_button import SidebarButton
 
 
 class SidebarDateAddedSection(BaseSidebarSection):

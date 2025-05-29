@@ -53,7 +53,9 @@ class BaseSequenceBuilder:
         self.ori_calculator = self.json_manager.ori_calculator
         self.start_pos_manager = SequenceBuilderStartPosManager(self.main_widget)
 
-    def initialize_sequence(self, length: int, CAP_type: str = "") -> None:
+    def initialize_sequence(
+        self, length: int, CAP_type: str = "", start_position: str = None
+    ) -> None:
         if not self.sequence_workbench:
             # Get sequence workbench through the new widget manager system
             try:
@@ -87,7 +89,14 @@ class BaseSequenceBuilder:
         self.sequence = self.json_manager.loader_saver.load_current_sequence()
 
         if len(self.sequence) == 1:
-            self.start_pos_manager.add_start_position(CAP_type)
+            if start_position:
+                # Add specific start position based on user selection
+                self.start_pos_manager.add_specific_start_position(
+                    start_position, CAP_type
+                )
+            else:
+                # Add random start position (existing behavior)
+                self.start_pos_manager.add_start_position(CAP_type)
             self.sequence = self.json_manager.loader_saver.load_current_sequence()
 
         try:
@@ -183,14 +192,40 @@ class BaseSequenceBuilder:
         self, options: list[dict[str, Any]], blue_rot: str, red_rot: str
     ) -> list[dict[str, Any]]:
         """Filters options to match the given rotation directions."""
-        return [
+        filtered_options = [
             opt
             for opt in options
             if (
                 opt[BLUE_ATTRS].get(PROP_ROT_DIR) in [blue_rot, NO_ROT]
                 and opt[RED_ATTRS].get(PROP_ROT_DIR) in [red_rot, NO_ROT]
             )
-        ] or options
+        ]
+
+        # If filtering results in too few options (less than 3), be more lenient
+        if len(filtered_options) < 3:
+            # Try relaxing blue rotation requirement
+            relaxed_options = [
+                opt
+                for opt in options
+                if opt[RED_ATTRS].get(PROP_ROT_DIR) in [red_rot, NO_ROT]
+            ]
+            if len(relaxed_options) >= 3:
+                return relaxed_options
+
+            # If still too few, try relaxing red rotation requirement
+            relaxed_options = [
+                opt
+                for opt in options
+                if opt[BLUE_ATTRS].get(PROP_ROT_DIR) in [blue_rot, NO_ROT]
+            ]
+            if len(relaxed_options) >= 3:
+                return relaxed_options
+
+            # If still too restrictive, return all options to ensure diversity
+            if len(options) > 0:
+                return options
+
+        return filtered_options if filtered_options else options
 
     def _set_float_turns(self, next_beat: dict[str, Any], color: str) -> None:
         """

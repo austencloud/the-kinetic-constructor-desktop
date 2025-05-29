@@ -67,7 +67,11 @@ class SequenceDisplayManager:
             cache_size=DEFAULT_IMAGE_CACHE_SIZE,
         )
 
-        self.sequence_loader = SequenceLoader()
+        # Pass the generated sequence store to the sequence loader
+        generated_sequence_store = getattr(
+            sequence_card_tab, "generated_sequence_store", None
+        )
+        self.sequence_loader = SequenceLoader(generated_sequence_store)
         self.scroll_view = ScrollView(sequence_card_tab, self.config)
 
         try:
@@ -145,10 +149,18 @@ class SequenceDisplayManager:
         finally:
             self.sequence_card_tab.setCursor(Qt.CursorShape.ArrowCursor)
 
-    def display_sequences(self, selected_length: Optional[int] = None) -> None:
+    def display_sequences(
+        self,
+        selected_length: Optional[int] = None,
+        selected_levels: Optional[List[int]] = None,
+    ) -> None:
         """
         Display sequence card images. Clears existing UI pages and re-populates.
         Relies on ImageProcessor's LRU cache for image data.
+
+        Args:
+            selected_length: Optional length filter (None = use sidebar selection)
+            selected_levels: Optional level filters (None = use sidebar selection or all levels)
         """
         # Cancel any in-progress loading operations
         if self.is_loading:
@@ -161,10 +173,20 @@ class SequenceDisplayManager:
         self.is_loading = True
         self.cancel_requested = False
 
-        # Store the current loading length
+        # Store the current loading parameters
         if selected_length is None:
             selected_length = self.nav_sidebar.selected_length
         self.current_loading_length = selected_length
+
+        # Get selected levels from sidebar if available, otherwise default to all levels
+        if selected_levels is None:
+            if (
+                hasattr(self.nav_sidebar, "level_filter")
+                and self.nav_sidebar.level_filter
+            ):
+                selected_levels = self.nav_sidebar.level_filter.get_selected_levels()
+            else:
+                selected_levels = [1, 2, 3]  # Default to all levels
 
         # Reset cache statistics for this loading operation
         self.cache_hits = 0
@@ -182,8 +204,19 @@ class SequenceDisplayManager:
         # Update UI to show loading state
         self.sequence_card_tab.setCursor(Qt.CursorShape.WaitCursor)
         length_text = f"{selected_length}-step" if selected_length > 0 else "all"
+
+        # Create level description
+        if selected_levels and len(selected_levels) < 3:
+            level_names = {1: "Basic", 2: "Intermediate", 3: "Advanced"}
+            level_text = ", ".join(
+                [level_names[lvl] for lvl in sorted(selected_levels)]
+            )
+            filter_text = f"{length_text} sequences (Levels: {level_text})"
+        else:
+            filter_text = f"{length_text} sequences"
+
         self.sequence_card_tab.header.description_label.setText(
-            f"Loading {length_text} sequences..."
+            f"Loading {filter_text}..."
         )
 
         # Show progress bar and reset it
@@ -197,15 +230,20 @@ class SequenceDisplayManager:
 
         try:
             images_path = get_sequence_card_image_exporter_path()
-            sequences = self.sequence_loader.get_all_sequences(images_path)
-            filtered_sequences = self.sequence_loader.filter_sequences_by_length(
-                sequences, selected_length
+
+            # Use the enhanced filtering method that combines length and level filtering
+            filtered_sequences = self.sequence_loader.get_filtered_sequences(
+                images_path,
+                length_filter=(
+                    selected_length if selected_length and selected_length > 0 else None
+                ),
+                level_filters=selected_levels if selected_levels else None,
             )
 
             total_sequences = len(filtered_sequences)
             if total_sequences == 0:
                 self.sequence_card_tab.header.description_label.setText(
-                    f"No {length_text} sequences found"
+                    f"No {filter_text} found"
                 )
                 # Hide progress bar and container when no sequences found
                 if hasattr(self.sequence_card_tab.header, "progress_bar"):
@@ -242,19 +280,77 @@ class SequenceDisplayManager:
             # Update UI to show if we're using cached content
             if self.using_cached_content:
                 self.sequence_card_tab.header.description_label.setText(
-                    f"Loading {length_text} sequences from cache..."
+                    f"Loading {filter_text} from cache..."
                 )
 
-            for i, sequence_data in enumerate(filtered_sequences):
+            # First, try to load all images instantly from cache
+            page_scale_factor = self._get_current_page_scale_factor()
+            image_paths = [
+                seq.get("path", "")
+                for seq in filtered_sequences
+                if seq and seq.get("path", "") and os.path.exists(seq.get("path", ""))
+            ]
+
+            # Get cached images in batch for instant display
+            cached_images = self.image_processor.load_images_batch_if_cached(
+                image_paths, page_scale_factor, self.current_page_index
+            )
+
+            # Display cached images instantly
+            cached_count = 0
+            remaining_sequences = []
+
+            for sequence_data in filtered_sequences:
+                if self.cancel_requested:
+                    logging.debug("Loading cancelled by user")
+                    break
+
+                if sequence_data:
+                    image_path = sequence_data.get("path", "")
+                    if image_path in cached_images:
+                        # Instant display from cache
+                        try:
+                            pixmap = cached_images[image_path]
+                            if not pixmap.isNull():
+                                label = self.page_renderer.create_image_label(
+                                    sequence_data, pixmap
+                                )
+                                self._add_image_to_page(label)
+                                cached_count += 1
+                                self.cache_hits += 1
+                        except Exception as e:
+                            logging.error(
+                                f"Error displaying cached image {image_path}: {e}"
+                            )
+                            remaining_sequences.append(sequence_data)
+                    else:
+                        # Need to load this image
+                        remaining_sequences.append(sequence_data)
+
+            # Log cache performance
+            if cached_count > 0:
+                logging.info(f"Instantly displayed {cached_count} cached images")
+                # Update UI to reflect instant loading
+                if cached_count == len(filtered_sequences):
+                    self.sequence_card_tab.header.description_label.setText(
+                        f"Showing {len(filtered_sequences)} {filter_text} (loaded from cache)"
+                    )
+
+            # Process remaining images that need loading
+            for i, sequence_data in enumerate(remaining_sequences):
                 # Check for cancellation request
                 if self.cancel_requested:
-                    logging.debug(f"Loading cancelled at item {i}/{total_sequences}")
+                    logging.debug(
+                        f"Loading cancelled at item {i}/{len(remaining_sequences)}"
+                    )
                     break
 
                 if i % 10 == 0:  # Periodic UI update
                     # Update progress bar
                     if hasattr(self.sequence_card_tab.header, "progress_bar"):
-                        self.sequence_card_tab.header.progress_bar.setValue(i + 1)
+                        self.sequence_card_tab.header.progress_bar.setValue(
+                            cached_count + i + 1
+                        )
 
                     # Calculate cache hit ratio for debugging
                     if self.cache_hits + self.cache_misses > 0:
@@ -264,30 +360,22 @@ class SequenceDisplayManager:
                         logging.debug(f"Cache hit ratio: {cache_ratio:.2f}")
 
                     self.sequence_card_tab.header.description_label.setText(
-                        f"Loading {length_text} sequences... ({i+1}/{total_sequences})"
+                        f"Loading {filter_text}... ({cached_count + i + 1}/{total_sequences})"
                     )
 
                 try:
                     image_path = sequence_data.get("path", "")
                     if image_path and os.path.exists(image_path):
-                        page_scale_factor = self._get_current_page_scale_factor()
-
-                        # Track cache hit/miss before loading
-                        prev_cache_hits = self.image_processor.cache_hits
-                        prev_cache_misses = self.image_processor.cache_misses
-
-                        # ImageProcessor will use its LRU cache here
+                        # ImageProcessorCoordinator will use its multi-layer cache here
                         pixmap = (
                             self.image_processor.load_image_with_consistent_scaling(
                                 image_path, page_scale_factor, self.current_page_index
                             )
                         )
 
-                        # Update cache statistics
-                        if self.image_processor.cache_hits > prev_cache_hits:
-                            self.cache_hits += 1
-                        if self.image_processor.cache_misses > prev_cache_misses:
-                            self.cache_misses += 1
+                        # For now, assume cache miss for non-cached images
+                        # The coordinator handles cache statistics internally
+                        self.cache_misses += 1
 
                         if not pixmap.isNull():
                             label = self.page_renderer.create_image_label(
@@ -306,7 +394,7 @@ class SequenceDisplayManager:
                     QApplication.processEvents()
 
             self.sequence_card_tab.header.description_label.setText(
-                f"Showing {len(filtered_sequences)} {length_text} sequences across {len(self.pages)} pages in {self.config.columns_per_row} columns"
+                f"Showing {len(filtered_sequences)} {filter_text} across {len(self.pages)} pages in {self.config.columns_per_row} columns"
             )
 
         except Exception as e:
@@ -356,7 +444,12 @@ class SequenceDisplayManager:
                 total_count += 1
 
                 # Check if the raw image is in the cache
-                if image_path in self.image_processor.raw_image_cache:
+                cached_image = (
+                    self.image_processor.coordinator.cache_manager.get_raw_image(
+                        image_path
+                    )
+                )
+                if cached_image is not None:
                     cached_count += 1
 
         if total_count == 0:
@@ -499,4 +592,3 @@ class SequenceDisplayManager:
             logging.error(
                 f"Invalid position {self.current_position} for page's internal grid, max positions: {len(positions)}"
             )
-

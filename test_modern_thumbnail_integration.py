@@ -53,7 +53,7 @@ def test_thumbnail_factory():
     print("\n🧪 Testing Thumbnail Box Factory...")
     
     try:
-        from main_window.main_widget.browse_tab.thumbnail_box.thumbnail_box_factory import ThumbnailBoxFactory
+        from main_window.main_widget.browse_tab.thumbnail_box.factory import ThumbnailBoxFactory
         
         # Test factory methods exist
         assert hasattr(ThumbnailBoxFactory, 'create_integrated_thumbnail_box')
@@ -188,7 +188,7 @@ def test_integration_compatibility():
         print("✅ All required interface methods are present")
         
         # Test factory validation
-        from main_window.main_widget.browse_tab.thumbnail_box.thumbnail_box_factory import ThumbnailBoxFactory
+        from main_window.main_widget.browse_tab.thumbnail_box.factory import ThumbnailBoxFactory
         
         class MockCompatibleBox:
             def get_current_index(self): pass

@@ -81,19 +81,24 @@ class PrintableDisplayer:
         """
         self.manager.set_orientation(orientation)
 
-    def display_sequences(self, selected_length: Optional[int] = None) -> None:
+    def display_sequences(
+        self,
+        selected_length: Optional[int] = None,
+        selected_levels: Optional[List[int]] = None,
+    ) -> None:
         """
         Display sequence card images in a print-friendly layout.
 
         Args:
             selected_length: The length of sequences to display. If None, use the sidebar selection.
+            selected_levels: The difficulty levels to display. If None, use the sidebar selection.
         """
         # Cancel any in-progress loading operations
         if self.manager.is_loading:
             self.manager.cancel_loading()
 
-        # Display sequences with the new length
-        self.manager.display_sequences(selected_length)
+        # Display sequences with the new filters
+        self.manager.display_sequences(selected_length, selected_levels)
 
     # For backward compatibility, expose the pages property
     @property

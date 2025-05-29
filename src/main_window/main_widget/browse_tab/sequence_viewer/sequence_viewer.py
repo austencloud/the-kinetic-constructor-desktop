@@ -5,9 +5,9 @@ from typing import TYPE_CHECKING, Optional
 
 from main_window.main_widget.metadata_extractor import MetaDataExtractor
 
-from .sequence_viewer_state import SequenceViewerState
-from .sequence_viewer_action_button_panel import SequenceViewerActionButtonPanel
-from ..thumbnail_box.thumbnail_box_factory import ThumbnailBoxFactory
+from .state import SequenceViewerState
+from .action_button_panel import SequenceViewerActionButtonPanel
+from ..thumbnail_box.factory import ThumbnailBoxFactory
 
 
 if TYPE_CHECKING:

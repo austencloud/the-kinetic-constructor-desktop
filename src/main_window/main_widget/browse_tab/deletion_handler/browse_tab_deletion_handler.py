@@ -2,7 +2,7 @@ import os
 import shutil
 from typing import TYPE_CHECKING
 from .variation_number_fixer import VariationNumberFixer
-from ..browse_tab_delete_confirmation_dialog import BrowseTabDeleteConfirmationDialog
+from ..delete_confirmation_dialog import BrowseTabDeleteConfirmationDialog
 from utils.path_helpers import get_data_path
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import Qt, QTimer

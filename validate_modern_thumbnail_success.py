@@ -57,7 +57,7 @@ def validate_implementation_success():
     # 3. Check factory integration
     print("\n🏭 Checking Factory Integration...")
     try:
-        from main_window.main_widget.browse_tab.thumbnail_box.thumbnail_box_factory import ThumbnailBoxFactory
+        from main_window.main_widget.browse_tab.thumbnail_box.factory import ThumbnailBoxFactory
         
         # Check factory methods
         required_methods = [

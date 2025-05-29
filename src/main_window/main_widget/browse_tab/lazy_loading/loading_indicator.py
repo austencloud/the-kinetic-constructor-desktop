@@ -97,7 +97,6 @@ class LoadingIndicator(QLabel):
                 stop: 1 rgba(255, 255, 255, 0.10)
             );
             border: 1px solid rgba(255, 255, 255, 0.25);
-            transform: translateY(-2px);
         }}
         """
 

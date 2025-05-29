@@ -59,7 +59,7 @@ class TabManager(QObject):
             from main_window.main_widget.generate_tab.generate_tab_factory import (
                 GenerateTabFactory,
             )
-            from main_window.main_widget.browse_tab.browse_tab_factory import (
+            from main_window.main_widget.browse_tab.factory import (
                 BrowseTabFactory,
             )
             from main_window.main_widget.learn_tab.learn_tab_factory import (

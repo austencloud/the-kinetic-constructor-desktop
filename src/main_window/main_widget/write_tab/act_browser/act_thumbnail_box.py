@@ -2,10 +2,10 @@ from typing import TYPE_CHECKING
 from PyQt6.QtWidgets import QVBoxLayout, QWidget, QApplication
 from PyQt6.QtGui import QPixmap
 
-from main_window.main_widget.browse_tab.thumbnail_box.thumbnail_box_favorites_manager import (
+from main_window.main_widget.browse_tab.thumbnail_box.favorites_manager import (
     ThumbnailBoxFavoritesManager,
 )
-from main_window.main_widget.browse_tab.thumbnail_box.thumbnail_box_header import (
+from main_window.main_widget.browse_tab.thumbnail_box.header import (
     ThumbnailBoxHeader,
 )
 from main_window.main_widget.metadata_extractor import MetaDataExtractor

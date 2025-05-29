@@ -11,15 +11,15 @@ from PyQt6.QtCore import QSize, QPropertyAnimation, QEasingCurve, QRect, pyqtPro
 from PyQt6.QtGui import QColor
 
 from styles.glassmorphism_coordinator import GlassmorphismCoordinator
-from main_window.main_widget.browse_tab.thumbnail_box.thumbnail_box_favorites_manager import (
+from main_window.main_widget.browse_tab.thumbnail_box.favorites_manager import (
     ThumbnailBoxFavoritesManager,
 )
-from main_window.main_widget.browse_tab.thumbnail_box.thumbnail_box_nav_buttons_widget import (
+from main_window.main_widget.browse_tab.thumbnail_box.nav_buttons_widget import (
     ThumbnailBoxNavButtonsWidget,
 )
-from .thumbnail_box_header import ThumbnailBoxHeader
+from .header import ThumbnailBoxHeader
 from .variation_number_label import VariationNumberLabel
-from .thumbnail_box_state import ThumbnailBoxState
+from .state import ThumbnailBoxState
 from .modern_thumbnail_image_label import ModernThumbnailImageLabel
 
 if TYPE_CHECKING:
@@ -233,8 +233,10 @@ class ModernThumbnailBoxIntegrated(QWidget):
         self.state.set_current_index(index)
         self.image_label.update_thumbnail(index)
 
-    def update_thumbnails(self, thumbnails=[]):
+    def update_thumbnails(self, thumbnails=None):
         """Update thumbnails list."""
+        if thumbnails is None:
+            thumbnails = []
         self.state.update_thumbnails(thumbnails)
         self.nav_buttons_widget.state.thumbnails = thumbnails
 
