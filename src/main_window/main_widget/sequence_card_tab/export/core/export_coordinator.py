@@ -5,198 +5,164 @@ This coordinator replaces the monolithic SequenceCardImageExporter with a clean
 architecture that follows the Single Responsibility Principle.
 """
 
-import logging
-from typing import TYPE_CHECKING, Optional
-from datetime import datetime
-
-from .image_converter import ImageConverter
-from .batch_processor import BatchProcessor
-from .cache_manager import CacheManager
-from .memory_manager import MemoryManager
-from .file_operations_manager import FileOperationsManager
+from typing import TYPE_CHECKING
+from PyQt6.QtWidgets import QProgressDialog, QMessageBox, QPushButton, QApplication
+from PyQt6.QtCore import Qt
+from utils.path_helpers import (
+    get_dictionary_path,
+    get_sequence_card_image_exporter_path,
+)
 
 if TYPE_CHECKING:
     from ..image_exporter import SequenceCardImageExporter
 
 
 class ExportCoordinator:
-    """
-    Coordinates all image export operations using focused components.
-    
-    This coordinator orchestrates:
-    - Image conversion (QImage to PIL with memory management)
-    - Batch processing (memory-efficient processing)
-    - Cache management (regeneration logic, metadata validation)
-    - Memory management (monitoring, cleanup, garbage collection)
-    - File operations (directory creation, path handling)
-    
-    Each responsibility is handled by a dedicated component following SRP.
-    """
-    
     def __init__(self, exporter: "SequenceCardImageExporter"):
         self.exporter = exporter
-        self.logger = logging.getLogger(__name__)
-        
-        # Initialize specialized components
-        self.image_converter = ImageConverter()
-        self.batch_processor = BatchProcessor(exporter)
-        self.cache_manager = CacheManager(exporter.metadata_extractor)
-        self.memory_manager = MemoryManager()
-        self.file_operations = FileOperationsManager()
-        
-        # Export statistics
-        self.stats = {
-            "processed_sequences": 0,
-            "regenerated_count": 0,
-            "skipped_count": 0,
-            "failed_count": 0,
-            "start_time": None,
-            "end_time": None
-        }
-        
-        self.logger.info("ExportCoordinator initialized with component architecture")
-    
-    def export_all_images(self) -> dict:
-        """
-        Coordinate the complete image export process.
-        
-        Returns:
-            Dictionary with export statistics and results
-        """
-        self.logger.info("Starting coordinated image export process")
-        self.stats["start_time"] = datetime.now()
-        
+        self.progress_dialog = None
+
+    def export_all_images(self):
+        dictionary_path = get_dictionary_path()
+        export_path = get_sequence_card_image_exporter_path()
+
+        word_folders = self.exporter.file_operations.get_word_folders(dictionary_path)
+        if not word_folders:
+            self._show_error("No word folders found in the dictionary.")
+            return
+
+        total_sequences = self.exporter.batch_processor.count_total_sequences(
+            dictionary_path, word_folders
+        )
+        if total_sequences == 0:
+            self._show_info("No sequences found to export.")
+            return
+
+        self._setup_progress_dialog(total_sequences)
+        self.exporter.batch_processor.reset_cancel_flag()
+
         try:
-            # Phase 1: Setup and validation
-            export_config = self._setup_export_environment()
-            if not export_config:
-                return self._create_error_result("Failed to setup export environment")
-            
-            # Phase 2: Discover sequences
-            sequences = self._discover_sequences(export_config)
-            if not sequences:
-                return self._create_error_result("No sequences found to export")
-            
-            # Phase 3: Process in batches
-            self._process_sequences_in_batches(sequences, export_config)
-            
-            # Phase 4: Cleanup and finalize
-            self._finalize_export()
-            
-            return self._create_success_result()
-            
-        except Exception as e:
-            self.logger.error(f"Export coordination failed: {e}")
-            return self._create_error_result(f"Export failed: {str(e)}")
-    
-    def _setup_export_environment(self) -> Optional[dict]:
-        """Setup the export environment and validate paths."""
-        try:
-            config = self.file_operations.setup_export_environment()
-            self.memory_manager.initialize_monitoring()
-            return config
-        except Exception as e:
-            self.logger.error(f"Failed to setup export environment: {e}")
-            return None
-    
-    def _discover_sequences(self, config: dict) -> list:
-        """Discover all sequences to be exported."""
-        try:
-            return self.file_operations.discover_sequences(
-                config["dictionary_path"],
-                config["word_folders"]
+            result = self._process_all_sequences(
+                word_folders, dictionary_path, export_path, total_sequences
             )
-        except Exception as e:
-            self.logger.error(f"Failed to discover sequences: {e}")
-            return []
-    
-    def _process_sequences_in_batches(self, sequences: list, config: dict) -> None:
-        """Process sequences using the batch processor."""
-        try:
-            # Configure batch processor
-            self.batch_processor.configure(
-                sequences=sequences,
-                export_config=config,
-                image_converter=self.image_converter,
-                cache_manager=self.cache_manager,
-                memory_manager=self.memory_manager,
-                file_operations=self.file_operations
+            self._show_completion_message(result)
+        finally:
+            self._cleanup_progress_dialog()
+
+    def _setup_progress_dialog(self, total_sequences: int):
+        self.progress_dialog = QProgressDialog(
+            "Exporting sequence card images...",
+            "Cancel",
+            0,
+            total_sequences,
+            self.exporter.sequence_card_tab,
+        )
+        self.progress_dialog.setWindowTitle("Export Progress")
+        self.progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
+        self.progress_dialog.setAutoClose(False)
+        self.progress_dialog.setAutoReset(False)
+
+        cancel_button = QPushButton("Cancel")
+        cancel_button.clicked.connect(self.exporter.cancel_export)
+        self.progress_dialog.setCancelButton(cancel_button)
+
+        self.progress_dialog.show()
+
+    def _process_all_sequences(
+        self,
+        word_folders: list,
+        dictionary_path: str,
+        export_path: str,
+        total_sequences: int,
+    ) -> dict:
+        all_sequences = self.exporter.batch_processor.get_all_sequences(
+            word_folders, dictionary_path
+        )
+        batch_size = self.exporter.config_manager.get_batch_size()
+
+        processed_sequences = 0
+        regenerated_count = 0
+        skipped_count = 0
+        failed_count = 0
+
+        for i in range(0, len(all_sequences), batch_size):
+            if self.exporter.batch_processor.cancel_requested:
+                break
+
+            end_index = min(i + batch_size, len(all_sequences))
+
+            regenerated, skipped, failed = (
+                self.exporter.batch_processor.process_sequence_batch(
+                    all_sequences,
+                    dictionary_path,
+                    export_path,
+                    i,
+                    end_index,
+                    self.exporter.process_single_sequence,
+                    self.exporter.config_manager.get_memory_check_interval(),
+                )
             )
-            
-            # Process batches
-            batch_results = self.batch_processor.process_all_batches()
-            
-            # Update statistics
-            self.stats.update(batch_results)
-            
-        except Exception as e:
-            self.logger.error(f"Batch processing failed: {e}")
-            self.stats["failed_count"] += 1
-    
-    def _finalize_export(self) -> None:
-        """Finalize the export process."""
-        self.stats["end_time"] = datetime.now()
-        self.memory_manager.final_cleanup()
-        
-        # Log summary
-        duration = (self.stats["end_time"] - self.stats["start_time"]).total_seconds()
-        self.logger.info(f"Export completed in {duration:.2f} seconds")
-        self.logger.info(f"Statistics: {self.stats}")
-    
-    def _create_success_result(self) -> dict:
-        """Create success result dictionary."""
+
+            processed_sequences += end_index - i
+            regenerated_count += regenerated
+            skipped_count += skipped
+            failed_count += failed
+
+            self._update_progress(
+                processed_sequences,
+                total_sequences,
+                regenerated_count,
+                skipped_count,
+                failed_count,
+            )
+            QApplication.processEvents()
+
         return {
-            "success": True,
-            "statistics": self.stats.copy(),
-            "message": "Export completed successfully"
+            "total": total_sequences,
+            "processed": processed_sequences,
+            "regenerated": regenerated_count,
+            "skipped": skipped_count,
+            "failed": failed_count,
+            "cancelled": self.exporter.batch_processor.cancel_requested,
         }
-    
-    def _create_error_result(self, error_message: str) -> dict:
-        """Create error result dictionary."""
-        return {
-            "success": False,
-            "statistics": self.stats.copy(),
-            "error": error_message
-        }
-    
-    # Delegation methods for backward compatibility
-    def convert_qimage_to_pil(self, qimage, max_dimension: int = 3000):
-        """Convert QImage to PIL Image."""
-        return self.image_converter.convert_qimage_to_pil(qimage, max_dimension)
-    
-    def check_regeneration_needed(self, source_path: str, output_path: str) -> tuple:
-        """Check if regeneration is needed."""
-        return self.cache_manager.needs_regeneration(source_path, output_path)
-    
-    def get_memory_usage(self) -> float:
-        """Get current memory usage."""
-        return self.memory_manager.get_current_usage()
-    
-    def force_memory_cleanup(self) -> None:
-        """Force memory cleanup."""
-        self.memory_manager.force_cleanup()
-    
-    def get_export_statistics(self) -> dict:
-        """Get current export statistics."""
-        return self.stats.copy()
-    
-    def cancel_export(self) -> None:
-        """Cancel the export process."""
-        self.batch_processor.cancel_processing()
-        self.logger.info("Export cancellation requested")
-    
-    def get_performance_stats(self) -> dict:
-        """
-        Get performance statistics from all components.
-        
-        Returns:
-            Dictionary with component performance data
-        """
-        return {
-            "coordinator_stats": self.stats.copy(),
-            "memory_stats": self.memory_manager.get_stats(),
-            "batch_stats": self.batch_processor.get_stats(),
-            "cache_stats": self.cache_manager.get_stats(),
-            "file_stats": self.file_operations.get_stats(),
-            "converter_stats": self.image_converter.get_stats()
-        }
+
+    def _update_progress(
+        self, processed: int, total: int, regenerated: int, skipped: int, failed: int
+    ):
+        if self.progress_dialog:
+            self.progress_dialog.setValue(processed)
+            status = f"Processed: {processed}/{total} | Regenerated: {regenerated} | Skipped: {skipped}"
+            if failed > 0:
+                status += f" | Failed: {failed}"
+            self.progress_dialog.setLabelText(status)
+
+    def _show_completion_message(self, result: dict):
+        if result["cancelled"]:
+            QMessageBox.information(
+                self.exporter.sequence_card_tab,
+                "Export Cancelled",
+                f"Export was cancelled.\nProcessed: {result['processed']}/{result['total']} sequences.",
+            )
+        else:
+            message = (
+                f"Export completed!\n\n"
+                f"Total sequences: {result['total']}\n"
+                f"Regenerated: {result['regenerated']}\n"
+                f"Skipped (up to date): {result['skipped']}\n"
+                f"Failed: {result['failed']}"
+            )
+            QMessageBox.information(
+                self.exporter.sequence_card_tab, "Export Complete", message
+            )
+
+    def _show_error(self, message: str):
+        QMessageBox.critical(self.exporter.sequence_card_tab, "Export Error", message)
+
+    def _show_info(self, message: str):
+        QMessageBox.information(self.exporter.sequence_card_tab, "Export Info", message)
+
+    def _cleanup_progress_dialog(self):
+        if self.progress_dialog:
+            self.progress_dialog.close()
+            self.progress_dialog = None
+        self.exporter.memory_manager.force_memory_cleanup()

@@ -20,14 +20,14 @@ class ApprovalDialogDimensionCalculator:
         available_card_width = (self.available_width - total_spacing) // columns
 
         card_width = available_card_width
-        image_width = int(card_width * 0.9)
+        image_width = int(card_width)
         image_height = int(image_width * 0.7)
 
-        info_section_height = 120
+        info_section_height = 20
         card_margins = 30
         card_height = image_height + info_section_height + card_margins
 
-        max_card_height = self.available_height - 50
+        max_card_height = self.available_height
         card_height = min(card_height, max_card_height)
 
         if card_height == max_card_height:
