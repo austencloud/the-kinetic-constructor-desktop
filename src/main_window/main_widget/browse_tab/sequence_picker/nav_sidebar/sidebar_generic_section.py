@@ -1,7 +1,7 @@
 from PyQt6.QtGui import QCursor
 from PyQt6.QtCore import Qt
 
-from main_window.main_widget.browse_tab.sequence_picker.nav_sidebar.sidebar_button import SidebarButton
+from main_window.main_widget.browse_tab.sequence_picker.nav_sidebar.button.sidebar_button import SidebarButton
 
 from .base_sidebar_section import BaseSidebarSection
 

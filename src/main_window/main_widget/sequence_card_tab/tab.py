@@ -1,11 +1,10 @@
 # src/main_window/main_widget/sequence_card_tab/tab.py
 import logging
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QSizePolicy, QApplication
+from PyQt6.QtWidgets import QWidget, QApplication
 from PyQt6.QtCore import Qt, QTimer
-from interfaces.settings_manager_interface import ISettingsManager
-from interfaces.json_manager_interface import IJsonManager
+from src.interfaces.settings_manager_interface import ISettingsManager
+from src.interfaces.json_manager_interface import IJsonManager
 from .content_area import SequenceCardContentArea
-from .header import SequenceCardHeader
 from .initializer import USE_PRINTABLE_LAYOUT, SequenceCardInitializer
 from .resource_manager import SequenceCardResourceManager
 from .settings_handler import SequenceCardSettingsHandler
@@ -17,6 +16,15 @@ from .components.pages.printable_layout import PaperSize, PaperOrientation
 from .export.image_exporter import SequenceCardImageExporter
 from .export.page_exporter import SequenceCardPageExporter
 from .components.display.printable_displayer import PrintableDisplayer
+from .core.mode_manager import SequenceCardModeManager, SequenceCardMode
+from .generation.generation_manager import GenerationManager
+from .generation.generated_sequence_store import GeneratedSequenceStore
+
+# New imports for refactored classes
+from .ui_manager import SequenceCardUIManager
+from .dictionary_mode_controller import SequenceCardDictionaryModeController
+from .generation_mode_controller import SequenceCardGenerationModeController
+
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -24,6 +32,9 @@ if TYPE_CHECKING:
 
 
 class SequenceCardTab(QWidget):
+    # Expose USE_PRINTABLE_LAYOUT as a class attribute for controllers
+    USE_PRINTABLE_LAYOUT = USE_PRINTABLE_LAYOUT
+
     def __init__(
         self,
         main_widget: "MainWidget",
@@ -36,151 +47,268 @@ class SequenceCardTab(QWidget):
         self.json_manager = json_manager
         self.global_settings = settings_manager.get_global_settings()
 
-        self.pages = []
-        self.initialized = False
-        self.currently_displayed_length = 16
-        self.is_initializing = False
-        self.load_start_time = 0
+        self.pages: list = []  # Added type hint for pages
+        self.initialized: bool = False
+        self.currently_displayed_length: int = 16
+        self.is_initializing: bool = True
+        self.load_start_time: float = 0  # Assuming it's a timestamp
 
         self.settings_manager_obj = SequenceCardSettingsHandler(settings_manager)
         self.resource_manager = SequenceCardResourceManager(self)
         self.initializer = SequenceCardInitializer(self)
         self.content_area = SequenceCardContentArea(self)
 
-        self._create_components()
-        self.init_ui()
+        # Instantiate managers required by controllers before controllers themselves
+        self.generation_manager = GenerationManager(self)
+        self.generated_sequence_store = GeneratedSequenceStore(self)
 
-    def _create_components(self):
+        self.ui_manager = SequenceCardUIManager(self)
+        self.dictionary_mode_controller = SequenceCardDictionaryModeController(self)
+        self.generation_mode_controller = SequenceCardGenerationModeController(self)
+
+        self._create_and_init_components()
+        self.ui_manager.init_ui()
+
+    def _create_and_init_components(self):
         self.nav_sidebar = SequenceCardNavSidebar(self)
 
-        if hasattr(self.settings_manager_obj, "saved_length"):
-            self.nav_sidebar.selected_length = self.settings_manager_obj.saved_length
+        saved_length = self.settings_manager_obj.saved_length
+        self.nav_sidebar.selected_length = saved_length
+        self.currently_displayed_length = saved_length
+        if hasattr(self.nav_sidebar, "scroll_area") and hasattr(
+            self.nav_sidebar.scroll_area, "update_selection"
+        ):
+            self.nav_sidebar.scroll_area.update_selection(saved_length)
+        logging.info(f"INITIALIZATION: Set initial length to {saved_length}")
 
+        if (
+            hasattr(self.settings_manager_obj, "saved_levels")
+            and self.nav_sidebar.level_filter
+        ):
+            self.nav_sidebar.level_filter.set_selected_levels(
+                self.settings_manager_obj.saved_levels
+            )
+        self.nav_sidebar.level_filter_changed.connect(self._on_level_filter_changed)
+
+        self.nav_sidebar.mode_change_requested.connect(self._on_mode_change_requested)
+
+        # Mode manager is initialized here as it might depend on sidebar or other UI elements
+        self.mode_manager = SequenceCardModeManager(self)
+
+        # GenerationManager and GeneratedSequenceStore are already created in __init__
+        # Now, connect signals that require both generation_manager and generation_mode_controller
+        self.generation_manager.sequence_generated.connect(
+            self.generation_mode_controller.on_sequence_generated
+        )
+        self.generation_manager.generation_failed.connect(
+            self.generation_mode_controller.on_generation_failed
+        )
+        self.generation_manager.batch_generation_progress.connect(
+            self.generation_mode_controller.on_generation_progress
+        )
+
+        # Page factory and displayer (conditionally initialized)
         if USE_PRINTABLE_LAYOUT:
             self.page_factory = PrintablePageFactory(self)
-        else:
-            self.page_factory = SequenceCardPageFactory(self)
-
-        if USE_PRINTABLE_LAYOUT:
             self.printable_displayer = PrintableDisplayer(self)
-            self.printable_displayer.set_paper_size(PaperSize.A4)
-            self.printable_displayer.set_orientation(PaperOrientation.PORTRAIT)
-
+            self.printable_displayer.set_paper_size(
+                PaperSize.A4
+            )  # Default, can be configurable
+            self.printable_displayer.set_orientation(
+                PaperOrientation.PORTRAIT
+            )  # Default
             if hasattr(self.settings_manager_obj, "saved_column_count"):
                 self.printable_displayer.columns_per_row = (
                     self.settings_manager_obj.saved_column_count
                 )
+        else:
+            self.page_factory = SequenceCardPageFactory(self)
+            self.printable_displayer = None  # Ensure it's None if not used
 
-        self.image_exporter = SequenceCardImageExporter(self)
+        # Other utilities
+        self.image_exporter = SequenceCardImageExporter(
+            self
+        )  # Could be used by generation controller
         self.page_exporter = SequenceCardPageExporter(self)
-        self.refresher = SequenceCardRefresher(self)
-        self.pages = []
+        self.refresher = SequenceCardRefresher(
+            self
+        )  # May need review if its responsibilities overlap
 
-    def init_ui(self):
-        self.layout: QVBoxLayout = QVBoxLayout(self)
-        self.layout.setContentsMargins(10, 10, 10, 10)
-        self.layout.setSpacing(10)
-
-        self.header = SequenceCardHeader(self)
-        self.layout.addWidget(self.header)
-
-        self.content_layout = QHBoxLayout()
-        self.content_layout.setContentsMargins(0, 0, 0, 0)
-        self.content_layout.setSpacing(15)
-
-        sidebar_width = 200
-        self.nav_sidebar.setFixedWidth(sidebar_width)
-        self.nav_sidebar.setSizePolicy(
-            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding
-        )
-
-        self.content_layout.addWidget(self.nav_sidebar, 0)
-        self.content_layout.addWidget(self.content_area.scroll_area, 1)
-
-        self.layout.addLayout(self.content_layout, 1)
-
+        # Connect length selection from sidebar
         if hasattr(self.nav_sidebar, "length_selected"):
             self.nav_sidebar.length_selected.connect(self._on_length_selected)
 
-    def update_column_count(self, column_count: int):
-        if USE_PRINTABLE_LAYOUT and hasattr(self, "printable_displayer"):
-            self.printable_displayer.set_columns_per_row(column_count)
-
-    def _on_length_selected(self, length: int):
-        self.currently_displayed_length = length
-        self.settings_manager_obj.save_length(length)
-
-        if self.is_initializing:
-            return
-
-        self.content_area.clear_layout()
-        self.header.description_label.setText(
-            f"Loading {length if length > 0 else 'all'}-step sequences..."
+        # Finalize mode manager and set initial state
+        self.mode_manager.complete_initialization()
+        self.is_initializing = False
+        # Set initial mode (e.g., Dictionary) after all components are ready
+        # This will trigger the appropriate controller's activate method.
+        QTimer.singleShot(
+            0, lambda: self._on_mode_change_requested(self.mode_manager.current_mode)
         )
 
-        if USE_PRINTABLE_LAYOUT and hasattr(self, "printable_displayer"):
-            if (
-                hasattr(self.printable_displayer, "manager")
-                and self.printable_displayer.manager.is_loading
-            ):
-                logging.debug(
-                    f"Cancelling in-progress loading operation before loading length {length}"
-                )
-                self.printable_displayer.manager.cancel_loading()
+    # init_ui is now handled by UIManager
 
-            self.printable_displayer.display_sequences(length)
-            self._sync_pages_from_displayer()
+    def update_column_count(self, column_count: int):
+        self.ui_manager.update_column_count(column_count)
+
+    def _on_length_selected(self, length: int):
+        # Delegate to the dictionary mode controller if it's the active mode
+        if self.mode_manager.current_mode == SequenceCardMode.DICTIONARY:
+            self.dictionary_mode_controller.on_length_selected(length)
+        # If generation mode or other modes need to react, add logic here or in their controllers
+
+    def _on_level_filter_changed(self, selected_levels: list):
+        # Delegate to the dictionary mode controller
+        if self.mode_manager.current_mode == SequenceCardMode.DICTIONARY:
+            self.dictionary_mode_controller.on_level_filter_changed(selected_levels)
+
+    def _on_mode_change_requested(self, mode: SequenceCardMode):
+        if (
+            self.mode_manager.current_mode == mode and not self.is_initializing
+        ):  # Avoid redundant switches
+            # If the mode is already active, perhaps just refresh its UI or state
+            if mode == SequenceCardMode.DICTIONARY:
+                self.dictionary_mode_controller.activate()  # Or a refresh method
+            elif mode == SequenceCardMode.GENERATION:
+                self.generation_mode_controller.activate()  # Or a refresh method
+            self._update_mode_toggle_availability()  # Ensure toggle is correct
+            return
+
+        if self.mode_manager.switch_mode(mode):
+            # Deactivate previous controller (optional, if controllers manage their state)
+            # self.dictionary_mode_controller.deactivate()
+            # self.generation_mode_controller.deactivate()
+
+            # Activate new controller
+            if mode == SequenceCardMode.DICTIONARY:
+                if hasattr(self, "generation_mode_controller"):  # Ensure it exists
+                    self.generation_mode_controller.deactivate()
+                self.dictionary_mode_controller.activate()
+            elif mode == SequenceCardMode.GENERATION:
+                if hasattr(self, "dictionary_mode_controller"):  # Ensure it exists
+                    self.dictionary_mode_controller.deactivate()
+                self.generation_mode_controller.activate()
+
+            self._update_ui_for_mode(mode)  # Keep this for now, or move to controllers
+
+            if self.nav_sidebar.mode_toggle:
+                self.nav_sidebar.mode_toggle.set_current_mode(mode)
+        self._update_mode_toggle_availability()
+
+    def _update_ui_for_mode(self, mode: SequenceCardMode):
+        """Update UI elements based on the current mode.
+        This method will now primarily delegate to the active mode's controller."""
+        if mode == SequenceCardMode.DICTIONARY:
+            # UI updates are handled by dictionary_mode_controller.activate()
+            pass
+        elif mode == SequenceCardMode.GENERATION:
+            # UI updates are handled by generation_mode_controller.activate()
+            pass
+        # Common UI updates or sidebar visibility can remain here or move to UIManager
+        self._update_mode_toggle_availability()
+
+    def _update_mode_toggle_availability(self):
+        if self.nav_sidebar.mode_toggle:
+            self.nav_sidebar.mode_toggle.set_mode_enabled(
+                SequenceCardMode.DICTIONARY, True
+            )
+            generation_available = self.generation_manager.is_available()
+            self.nav_sidebar.mode_toggle.set_mode_enabled(
+                SequenceCardMode.GENERATION, generation_available
+            )
+            # Ensure the toggle reflects the actual current mode
+            self.nav_sidebar.mode_toggle.set_current_mode(
+                self.mode_manager.current_mode
+            )
 
     def showEvent(self, event):
         super().showEvent(event)
         if not self.initialized:
             self.initialized = True
-            self.setCursor(Qt.CursorShape.WaitCursor)
+            self.ui_manager.show_loading_indicator("Initializing tab...")
+            # Initializer logic might need adjustment based on new structure
             QTimer.singleShot(50, self.initializer.initialize_content)
-
-    def load_sequences(self):
-        selected_length = self.nav_sidebar.selected_length
-        length_text = f"{selected_length}-step" if selected_length > 0 else "all"
-        self.header.description_label.setText(f"Loading {length_text} sequences...")
-        QApplication.processEvents()
-
-        if USE_PRINTABLE_LAYOUT and hasattr(self, "printable_displayer"):
-            self.printable_displayer.display_sequences(selected_length)
-            self._sync_pages_from_displayer()
+            QTimer.singleShot(
+                100, self._ensure_generate_tab_available_and_update_toggle
+            )
+            QTimer.singleShot(
+                150, lambda: self.ui_manager.hide_loading_indicator()
+            )  # Hide after init
         else:
-            pass
+            self._ensure_generate_tab_available_and_update_toggle()
+            # Refresh current mode's view if necessary
+            current_mode = self.mode_manager.current_mode
+            if current_mode == SequenceCardMode.DICTIONARY:
+                self.dictionary_mode_controller.activate()  # Or a lighter refresh method
+            elif current_mode == SequenceCardMode.GENERATION:
+                self.generation_mode_controller.activate()  # Or a lighter refresh method
+
+    def _ensure_generate_tab_available_and_update_toggle(self):
+        """Ensures generate tab is available and updates mode toggle."""
+        self._ensure_generate_tab_available()
+        self._update_mode_toggle_availability()
+
+    def _ensure_generate_tab_available(self):
+        try:
+            if not self.generation_manager.is_available():
+                self.generation_manager._refresh_generate_tab_reference()
+                # No direct UI update here, _update_mode_toggle_availability will handle it
+        except Exception as e:
+            logging.error(f"Error ensuring generate tab availability: {e}")
+
+    def load_sequences(self):  # This is dictionary specific
+        if self.mode_manager.current_mode == SequenceCardMode.DICTIONARY:
+            self.dictionary_mode_controller.load_sequences()
+        # If called from elsewhere, ensure it's appropriate or delegate.
 
     def regenerate_all_images(self):
-        self.setCursor(Qt.CursorShape.WaitCursor)
-        original_text = self.header.description_label.text()
-        self.header.description_label.setText("Regenerating images... Please wait")
+        self.ui_manager.show_loading_indicator("Regenerating images... Please wait")
         QApplication.processEvents()
+        original_text = ""  # Store original text if needed, or let UIManager handle it.
+        # Consider if header text should be managed by UIManager or controllers.
 
         try:
             if hasattr(self.image_exporter, "export_all_images"):
                 self.image_exporter.export_all_images()
 
-            selected_length = self.nav_sidebar.selected_length
+            # Refresh based on current mode
+            if self.mode_manager.current_mode == SequenceCardMode.DICTIONARY:
+                selected_length = (
+                    self.nav_sidebar.selected_length
+                )  # Or get from controller
+                if USE_PRINTABLE_LAYOUT and self.printable_displayer:
+                    self.printable_displayer.display_sequences(selected_length)
+                    self._sync_pages_from_displayer()
+            elif self.mode_manager.current_mode == SequenceCardMode.GENERATION:
+                self.generation_mode_controller._display_generated_sequences()
 
-            if USE_PRINTABLE_LAYOUT and hasattr(self, "printable_displayer"):
-                self.printable_displayer.display_sequences(selected_length)
-                self._sync_pages_from_displayer()
-
-            self.header.description_label.setText("Images regenerated successfully!")
+            self.ui_manager.set_header_description("Images regenerated successfully!")
             QTimer.singleShot(
-                3000, lambda: self.header.description_label.setText(original_text)
+                3000,
+                lambda: self.ui_manager.set_header_description(
+                    original_text
+                    if original_text
+                    else self.mode_manager.current_mode.name.title()
+                ),
             )
 
         except Exception as e:
-            self.header.description_label.setText(f"Error regenerating: {str(e)}")
+            logging.error(f"Error regenerating images: {e}")
+            self.ui_manager.set_header_description(f"Error regenerating: {str(e)}")
             QTimer.singleShot(
-                5000, lambda: self.header.description_label.setText(original_text)
+                5000,
+                lambda: self.ui_manager.set_header_description(
+                    original_text
+                    if original_text
+                    else self.mode_manager.current_mode.name.title()
+                ),
             )
         finally:
-            self.setCursor(Qt.CursorShape.ArrowCursor)
+            self.ui_manager.hide_loading_indicator()
 
     def _sync_pages_from_displayer(self):
-        if USE_PRINTABLE_LAYOUT and hasattr(self, "printable_displayer"):
+        if USE_PRINTABLE_LAYOUT and self.printable_displayer:
             if hasattr(self.printable_displayer, "pages"):
                 self.pages = self.printable_displayer.pages
             elif hasattr(self.printable_displayer, "manager") and hasattr(
@@ -190,25 +318,53 @@ class SequenceCardTab(QWidget):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
+        # Debounce or delay the sequence loading on resize
         if self.initialized and hasattr(self.nav_sidebar, "selected_length"):
-            QTimer.singleShot(300, self.load_sequences)
+            # Only reload if in dictionary mode and printable layout is active
+            if (
+                self.mode_manager.current_mode == SequenceCardMode.DICTIONARY
+                and USE_PRINTABLE_LAYOUT
+            ):
+                # Could use a QTimer to delay this call to avoid rapid reloads
+                if hasattr(self, "_resize_load_timer"):
+                    self._resize_load_timer.stop()
+                else:
+                    self._resize_load_timer = QTimer(self)
+                    self._resize_load_timer.setSingleShot(True)
+                    self._resize_load_timer.timeout.connect(
+                        self.dictionary_mode_controller.load_sequences
+                    )  # Delegate
+                self._resize_load_timer.start(300)
 
-    def on_scroll_area_resize(self):
+    def on_scroll_area_resize(self):  # This seems tied to resource_manager
         if self.resource_manager.resize_timer.isActive():
             self.resource_manager.resize_timer.stop()
-        self.resource_manager.resize_timer.start(250)
+        self.resource_manager.resize_timer.start(
+            250
+        )  # Triggers refresh_layout_after_resize
 
-    def refresh_layout_after_resize(self):
+    def refresh_layout_after_resize(self):  # This is dictionary/printable specific
         if not self.initialized or not hasattr(self.nav_sidebar, "selected_length"):
             return
 
-        if USE_PRINTABLE_LAYOUT and hasattr(self, "printable_displayer"):
-            logging.debug("Refreshing layout after resize")
-            self.printable_displayer.refresh_layout()
+        if (
+            self.mode_manager.current_mode == SequenceCardMode.DICTIONARY
+            and USE_PRINTABLE_LAYOUT
+            and self.printable_displayer
+        ):
+            logging.debug("Refreshing layout after resize (delegated)")
+            self.printable_displayer.refresh_layout()  # This might be called by dictionary controller too
             self._sync_pages_from_displayer()
 
     def cleanup(self):
         self.resource_manager.cleanup()
+        if hasattr(self, "generated_sequence_store"):  # Check existence before cleanup
+            self.generated_sequence_store.cleanup()
+        # Add cleanup for controllers if they have resources to release
+        # if hasattr(self, 'dictionary_mode_controller') and hasattr(self.dictionary_mode_controller, 'cleanup'):
+        # self.dictionary_mode_controller.cleanup()
+        # if hasattr(self, 'generation_mode_controller') and hasattr(self.generation_mode_controller, 'cleanup'):
+        # self.generation_mode_controller.cleanup()
 
     def closeEvent(self, event):
         self.cleanup()

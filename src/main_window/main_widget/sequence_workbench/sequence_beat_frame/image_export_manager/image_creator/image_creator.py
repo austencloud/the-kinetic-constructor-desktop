@@ -48,6 +48,8 @@ class ImageCreator:
         options: dict = None,
         dictionary: bool = False,
         fullscreen_preview: bool = False,
+        override_word: str = None,
+        override_difficulty_level: int = None,
     ) -> QImage:
         if options is None:
             options = (
@@ -89,6 +91,15 @@ class ImageCreator:
             options["additional_height_top"] + options["additional_height_bottom"],
         )
 
+        # Extract start position data from sequence if available
+        start_pos_data = None
+        if options["include_start_position"] and len(sequence) > 1:
+            # Look for start position data in the sequence (usually at index 1)
+            for entry in sequence:
+                if entry.get("sequence_start_position"):
+                    start_pos_data = entry
+                    break
+
         self.beat_drawer.draw_beats(
             image,
             filled_beats,
@@ -97,9 +108,17 @@ class ImageCreator:
             options["include_start_position"],
             options["additional_height_top"],
             options["add_beat_numbers"],
+            start_pos_data,  # Pass start position data to BeatDrawer
         )
         if not fullscreen_preview and not dictionary:
-            self._draw_additional_info(image, filled_beats, options, num_filled_beats)
+            self._draw_additional_info(
+                image,
+                filled_beats,
+                options,
+                num_filled_beats,
+                override_word=override_word,
+                override_difficulty_level=override_difficulty_level,
+            )
 
         return image
 
@@ -122,7 +141,9 @@ class ImageCreator:
             "add_user_info": False,
             "add_word": False,
             "add_difficulty_level": False,
-            "include_start_position": False,
+            "include_start_position": options.get(
+                "include_start_position", False
+            ),  # Preserve start position setting instead of forcing False
             "combined_grids": options.get(
                 "combined_grids", False
             ),  # Preserve combined grids setting
@@ -181,20 +202,30 @@ class ImageCreator:
         filled_beats: list[BeatView],
         options: dict,
         num_filled_beats: int,
+        override_word: str = None,
+        override_difficulty_level: int = None,
     ):
         if options["add_user_info"]:
             self.user_info_drawer.draw_user_info(image, options, num_filled_beats)
 
         if options["add_word"]:
-            word = self.beat_frame.get.current_word()
+            # Use override word if provided, otherwise get from beat frame
+            if override_word is not None:
+                word = override_word
+            else:
+                word = self.beat_frame.get.current_word()
             self.word_drawer.draw_word(
                 image, word, num_filled_beats, options["additional_height_top"]
             )
 
         if options["add_difficulty_level"]:
-            difficulty_level = self.export_manager.main_widget.sequence_level_evaluator.get_sequence_difficulty_level(
-                self.export_manager.beat_frame.json_manager.loader_saver.load_current_sequence()
-            )
+            # Use override difficulty level if provided, otherwise calculate from current sequence
+            if override_difficulty_level is not None:
+                difficulty_level = override_difficulty_level
+            else:
+                difficulty_level = self.export_manager.main_widget.sequence_level_evaluator.get_sequence_difficulty_level(
+                    self.export_manager.beat_frame.json_manager.loader_saver.load_current_sequence()
+                )
             self.difficulty_level_drawer.draw_difficulty_level(
                 image, difficulty_level, options["additional_height_top"]
             )

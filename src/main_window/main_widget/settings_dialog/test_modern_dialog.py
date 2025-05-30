@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import QApplication
 def test_glassmorphism_styler():
     """Test the glassmorphism styler."""
     try:
-        from .core.glassmorphism_styler import GlassmorphismStyler
+        from ....styles.glassmorphism_styler import GlassmorphismStyler
         
         # Test color retrieval
         primary_color = GlassmorphismStyler.get_color('primary')

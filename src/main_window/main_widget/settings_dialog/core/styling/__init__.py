@@ -5,17 +5,17 @@ This package contains the refactored components that were extracted from
 the monolithic GlassmorphismStyler class to follow the Single Responsibility Principle.
 """
 
-from .glassmorphism_coordinator import GlassmorphismCoordinator
-from .color_manager import ColorManager
-from .typography_manager import TypographyManager
-from .component_styler import ComponentStyler
-from .effect_manager import EffectManager
-from .layout_styler import LayoutStyler
+from styles.glassmorphism_coordinator import GlassmorphismCoordinator
+from styles.color_manager import ColorManager
+from styles.typography_manager import TypographyManager
+from styles.component_styler import ComponentStyler
+from styles.effect_manager import EffectManager
+from styles.layout_styler import LayoutStyler
 
 __all__ = [
     "GlassmorphismCoordinator",
     "ColorManager",
-    "TypographyManager", 
+    "TypographyManager",
     "ComponentStyler",
     "EffectManager",
     "LayoutStyler",

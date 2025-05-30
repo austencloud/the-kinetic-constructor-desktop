@@ -40,6 +40,10 @@ class OptionGetter:
     def update_orientations(
         self, sequence: list[dict[str, Any]], options: list[dict[str, Any]]
     ) -> None:
+        # Validate sequence is not empty before accessing last element
+        if not sequence:
+            return  # No orientations to update if sequence is empty
+
         last = sequence[-1]
         for option in options:
             option[BLUE_ATTRS][START_ORI] = last[BLUE_ATTRS][END_ORI]
@@ -55,7 +59,18 @@ class OptionGetter:
         self, sequence: list[dict[str, Any]]
     ) -> list[dict[str, Any]]:
         next_opts: list[dict[str, Any]] = []
-        last = sequence[-1] if not sequence[-1].get("is_placeholder") else sequence[-2]
+        if not sequence:
+            return next_opts
+
+        # Additional safety check for sequence length
+        if len(sequence) < 1:
+            return next_opts
+
+        # Handle placeholder case with additional safety check
+        if sequence[-1].get("is_placeholder") and len(sequence) >= 2:
+            last = sequence[-2]
+        else:
+            last = sequence[-1]
         start = last.get(END_POS)
         if start:
             for group in self.pictograph_dataset.values():

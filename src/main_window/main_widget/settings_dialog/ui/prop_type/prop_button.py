@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import QPushButton
 from PyQt6.QtGui import QIcon, QCursor
 from PyQt6.QtCore import Qt, QSize
 from enums.prop_type import PropType
-from ...core.glassmorphism_styler import GlassmorphismStyler
+from styles.glassmorphism_styler import GlassmorphismStyler
 
 if TYPE_CHECKING:
     from .prop_type_tab import PropTypeTab
@@ -57,13 +57,11 @@ class PropButton(QPushButton):
                         stop:0 {GlassmorphismStyler.get_color('primary', 0.9)},
                         stop:1 {GlassmorphismStyler.get_color('primary_dark', 1.0)});
                     border: 2px solid {GlassmorphismStyler.get_color('primary_light', 1.0)};
-                    transform: scale(1.05);
                 }}
                 QPushButton:pressed {{
                     background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                         stop:0 {GlassmorphismStyler.get_color('primary_dark', 0.9)},
                         stop:1 {GlassmorphismStyler.get_color('primary', 0.8)});
-                    transform: scale(0.98);
                 }}
             """
             )
@@ -86,13 +84,11 @@ class PropButton(QPushButton):
                         stop:1 {GlassmorphismStyler.get_color('surface_lighter', 0.5)});
                     border: 1px solid {GlassmorphismStyler.get_color('border_light', 0.6)};
                     color: {GlassmorphismStyler.get_color('text_primary')};
-                    transform: scale(1.02);
                 }}
                 QPushButton:pressed {{
                     background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                         stop:0 {GlassmorphismStyler.get_color('surface', 0.8)},
                         stop:1 {GlassmorphismStyler.get_color('surface_light', 0.6)});
-                    transform: scale(0.98);
                 }}
             """
             )

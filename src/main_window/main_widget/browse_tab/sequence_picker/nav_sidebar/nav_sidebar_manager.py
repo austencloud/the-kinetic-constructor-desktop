@@ -3,12 +3,12 @@ from PyQt6.QtCore import Qt, QPoint
 from typing import TYPE_CHECKING
 
 from .sidebar_length_section import SidebarLengthSection
-from .sidebar_level_section import SidebarLevelSection
-from .sidebar_button import SidebarButton
+from .level_section import SidebarLevelSection
+from .button.sidebar_button import SidebarButton
 from .base_sidebar_section import BaseSidebarSection
 from .sidebar_date_added_section import SidebarDateAddedSection
 from .sidebar_generic_section import SidebarGenericSection
-from .sidebar_letter_section import SidebarLetterSection
+from .letter_section import SidebarLetterSection
 from src.settings_manager.global_settings.app_context import AppContext
 
 if TYPE_CHECKING:

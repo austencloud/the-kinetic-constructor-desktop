@@ -1,0 +1,1 @@
+# Initialization components for MainWidgetCoordinator

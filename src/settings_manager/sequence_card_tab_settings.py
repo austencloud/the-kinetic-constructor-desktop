@@ -10,6 +10,7 @@ class SequenceCardTabSettings:
     DEFAULT_SETTINGS = {
         "column_count": 3,  # Default to 3 columns
         "last_length": 16,  # Default to 16 beats
+        "selected_levels": [1, 2, 3],  # Default to all levels
         "auto_cache": True,  # Automatically cache sequence card pages
         "cache_max_size_mb": 500,  # Maximum cache size in MB
         "cache_max_age_days": 30,  # Maximum cache age in days
@@ -47,6 +48,42 @@ class SequenceCardTabSettings:
     def set_last_length(self, length: int) -> None:
         """Set the last selected sequence length."""
         self.settings.setValue("sequence_card_tab/last_length", length)
+
+    def get_selected_levels(self) -> list:
+        """Get the selected difficulty levels."""
+        # QSettings stores lists as strings, so we need to handle conversion
+        saved_levels = self.settings.value(
+            "sequence_card_tab/selected_levels",
+            self.DEFAULT_SETTINGS["selected_levels"],
+        )
+
+        # Handle different possible formats
+        if isinstance(saved_levels, list):
+            # Already a list, validate and return
+            return [
+                lvl for lvl in saved_levels if isinstance(lvl, int) and 1 <= lvl <= 3
+            ]
+        elif isinstance(saved_levels, str):
+            # Try to parse as comma-separated string
+            try:
+                levels = [int(x.strip()) for x in saved_levels.split(",") if x.strip()]
+                return [lvl for lvl in levels if 1 <= lvl <= 3]
+            except (ValueError, AttributeError):
+                return self.DEFAULT_SETTINGS["selected_levels"]
+        else:
+            # Fallback to default
+            return self.DEFAULT_SETTINGS["selected_levels"]
+
+    def set_selected_levels(self, levels: list) -> None:
+        """Set the selected difficulty levels."""
+        # Validate input
+        valid_levels = [lvl for lvl in levels if isinstance(lvl, int) and 1 <= lvl <= 3]
+        if not valid_levels:
+            valid_levels = self.DEFAULT_SETTINGS["selected_levels"]
+
+        # Store as comma-separated string for better QSettings compatibility
+        levels_str = ",".join(map(str, sorted(valid_levels)))
+        self.settings.setValue("sequence_card_tab/selected_levels", levels_str)
 
     def get_auto_cache(self) -> bool:
         """Get whether to automatically cache sequence card pages."""

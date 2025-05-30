@@ -172,10 +172,8 @@ class GridModeSection(FilterSectionBase):
             return self._all_sequences_with_grid_modes
 
         dictionary_dir = get_data_path("dictionary")
-        thumbnail_finder = self.main_widget.get_widget("thumbnail_finder")
-        if not thumbnail_finder:
-            # Fallback: try direct access for backward compatibility
-            thumbnail_finder = getattr(self.main_widget, "thumbnail_finder", None)
+        # Fix: Access thumbnail_finder as a service attribute, not through widget manager
+        thumbnail_finder = getattr(self.main_widget, "thumbnail_finder", None)
 
         if thumbnail_finder:
             base_words = [

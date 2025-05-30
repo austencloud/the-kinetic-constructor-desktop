@@ -10,7 +10,7 @@ from PyQt6.QtCore import Qt
 from enums.prop_type import PropType
 from main_window.main_widget.settings_dialog.ui.prop_type.prop_button import PropButton
 from utils.path_helpers import get_image_path
-from ...core.glassmorphism_styler import GlassmorphismStyler
+from styles.glassmorphism_styler import GlassmorphismStyler
 
 
 if TYPE_CHECKING:

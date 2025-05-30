@@ -6,7 +6,7 @@ architecture that follows the Single Responsibility Principle.
 """
 
 import logging
-from typing import TYPE_CHECKING, Optional, Dict, Any
+from typing import TYPE_CHECKING, Optional, Dict, Any, List
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtCore import QSize
 
@@ -68,6 +68,77 @@ class ImageProcessorCoordinator:
 
         self.columns_per_row = columns
         self.logger.debug(f"Columns per row set to: {columns}")
+
+    def load_images_batch_if_cached(
+        self,
+        image_paths: List[str],
+        page_scale_factor: float = 1.0,
+        current_page_index: int = -1,
+    ) -> Dict[str, QPixmap]:
+        """
+        Load multiple images instantly if they are cached, bypassing async loading.
+
+        This method enables instant batch display of cached images, eliminating
+        progressive loading behavior when switching between sequence length filters.
+
+        Args:
+            image_paths: List of image paths to load
+            page_scale_factor: Scale factor for display
+            current_page_index: Current page index for aspect ratio updates
+
+        Returns:
+            Dictionary mapping paths to pixmaps (only includes cache hits)
+        """
+        cached_images = {}
+
+        for image_path in image_paths:
+            try:
+                # Create cache key for scaled images
+                cache_key = self.image_scaler.create_cache_key(
+                    image_path, self.columns_per_row, page_scale_factor
+                )
+
+                # Check Level 2 cache (scaled images) first
+                cached_pixmap = self.cache_manager.get_scaled_image(cache_key)
+                if cached_pixmap:
+                    cached_images[image_path] = cached_pixmap
+                    continue
+
+                # Check disk cache
+                cell_size = self.page_factory.get_cell_size()
+                disk_cached_pixmap = self.cache_manager.get_disk_cached_image(
+                    image_path, cell_size, page_scale_factor
+                )
+                if disk_cached_pixmap:
+                    # Add to L2 cache for faster access next time
+                    self.cache_manager.put_scaled_image(cache_key, disk_cached_pixmap)
+                    cached_images[image_path] = disk_cached_pixmap
+                    continue
+
+                # Check if raw image is cached
+                raw_image = self.cache_manager.get_raw_image(image_path)
+                if raw_image and not raw_image.isNull():
+                    # Scale the cached raw image
+                    pixmap = self.image_scaler.scale_for_screen_display(
+                        raw_image,
+                        image_path,
+                        self.columns_per_row,
+                        page_scale_factor,
+                        current_page_index,
+                    )
+                    if pixmap and not pixmap.isNull():
+                        # Cache the scaled result
+                        self.cache_manager.put_scaled_image(cache_key, pixmap)
+                        self.cache_manager.cache_to_disk(
+                            image_path, pixmap, cell_size, page_scale_factor
+                        )
+                        cached_images[image_path] = pixmap
+
+            except Exception as e:
+                self.logger.debug(f"Error checking cache for {image_path}: {e}")
+                continue
+
+        return cached_images
 
     def load_image_with_consistent_scaling(
         self,

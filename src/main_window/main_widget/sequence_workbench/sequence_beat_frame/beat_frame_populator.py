@@ -31,7 +31,7 @@ class BeatFramePopulator:
         AppContext.json_manager().loader_saver.clear_current_sequence_file()
 
         # Get construct tab through the new widget manager system
-        self.construct_tab = self.main_widget.get_tab_widget("construct")
+        self.construct_tab = self.main_widget.tab_manager.get_tab_widget("construct")
         if not self.construct_tab:
             # Fallback: try direct access for backward compatibility
             self.construct_tab = getattr(self.main_widget, "construct_tab", None)

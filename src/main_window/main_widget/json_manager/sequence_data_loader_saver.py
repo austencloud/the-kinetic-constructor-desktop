@@ -21,6 +21,7 @@ from main_window.main_widget.sequence_properties_manager.sequence_properties_man
 from src.settings_manager.global_settings.app_context import AppContext
 from utils.path_helpers import get_user_editable_resource_path
 from utils.word_simplifier import WordSimplifier
+from .default_sequence_provider import DefaultSequenceProvider
 
 if TYPE_CHECKING:
     from core.application_context import ApplicationContext
@@ -37,6 +38,7 @@ class SequenceDataLoaderSaver:
         self.current_sequence_json = get_user_editable_resource_path(
             "current_sequence.json"
         )
+        self.app_context = app_context
 
         # Create sequence properties manager with dependency injection
         if app_context:
@@ -81,38 +83,7 @@ class SequenceDataLoaderSaver:
             return default_sequence
 
     def get_default_sequence(self) -> list[dict]:
-        """Return a default sequence if JSON is missing, empty, or invalid."""
-        # Use safe defaults that don't depend on AppContext during initialization
-        try:
-            author = AppContext.settings_manager().users.get_current_user()
-        except:
-            author = "Unknown"
-
-        try:
-            prop_type = (
-                AppContext.settings_manager()
-                .global_settings.get_prop_type()
-                .name.lower()
-            )
-        except:
-            prop_type = "staff"
-
-        return [
-            {
-                "word": "",
-                "author": author,
-                "level": 0,
-                "prop_type": prop_type,
-                GRID_MODE: DIAMOND,
-                "is_circular": False,
-                "can_be_CAP": False,
-                "is_strict_rotated_CAP": False,
-                "is_strict_mirrored_CAP": False,
-                "is_strict_swapped_CAP": False,
-                "is_mirrored_swapped_CAP": False,
-                "is_rotated_swapped_CAP": False,
-            }
-        ]
+        return DefaultSequenceProvider.get_default_sequence(self.app_context)
 
     def save_current_sequence(self, sequence: list[dict]):
         if not sequence:

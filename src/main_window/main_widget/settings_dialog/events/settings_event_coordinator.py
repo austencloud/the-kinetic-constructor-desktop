@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 class SettingsEventCoordinator(QObject):
     """
     Coordinates events and signals for the settings dialog.
-    
+
     Responsibilities:
     - Handle button click events
     - Coordinate tab selection events
@@ -38,7 +38,7 @@ class SettingsEventCoordinator(QObject):
         state_manager: "SettingsStateManager",
         tab_manager: "SettingsTabManager",
         app_context: "ApplicationContext" = None,
-        parent=None
+        parent=None,
     ):
         super().__init__(parent)
         self.settings_manager = settings_manager
@@ -49,26 +49,26 @@ class SettingsEventCoordinator(QObject):
     def setup_connections(self, components: Dict[str, Any], tabs: Dict[str, QWidget]):
         """
         Setup all signal connections.
-        
+
         Args:
             components: Dictionary of dialog components
             tabs: Dictionary of tab widgets
         """
         try:
             # Sidebar selection
-            if 'sidebar' in components:
-                components['sidebar'].currentRowChanged.connect(self._on_tab_selected)
+            if "sidebar" in components:
+                components["sidebar"].currentRowChanged.connect(self._on_tab_selected)
 
             # Action button connections
-            if 'action_buttons' in components:
-                action_buttons = components['action_buttons']
+            if "action_buttons" in components:
+                action_buttons = components["action_buttons"]
                 action_buttons.apply_requested.connect(self._on_apply_settings)
                 action_buttons.ok_requested.connect(self._on_ok_clicked)
                 action_buttons.cancel_requested.connect(self._on_cancel_clicked)
 
             # Close button connection
-            if 'close_button' in components:
-                components['close_button'].clicked.connect(self._on_cancel_clicked)
+            if "close_button" in components:
+                components["close_button"].clicked.connect(self._on_cancel_clicked)
 
             # State manager connections
             self.state_manager.settings_changed.connect(self._on_setting_changed)
@@ -76,7 +76,7 @@ class SettingsEventCoordinator(QObject):
             self.state_manager.backup_created.connect(self._on_backup_created)
             self.state_manager.backup_restored.connect(self._on_backup_restored)
 
-            # Enhanced General Tab connections
+            # General Tab connections
             if "General" in tabs and hasattr(tabs["General"], "setting_changed"):
                 tabs["General"].setting_changed.connect(self._on_tab_setting_changed)
 
@@ -92,8 +92,8 @@ class SettingsEventCoordinator(QObject):
     def _on_tab_selected(self, index: int):
         """Handle tab selection."""
         try:
-            if 'content_area' in self.components:
-                content_area = self.components['content_area']
+            if "content_area" in self.components:
+                content_area = self.components["content_area"]
                 if 0 <= index < content_area.count():
                     content_area.setCurrentIndex(index)
 
@@ -101,7 +101,9 @@ class SettingsEventCoordinator(QObject):
                     tab_order = self.tab_manager.get_tab_order()
                     tab_name = tab_order[index] if index < len(tab_order) else None
                     if tab_name and self.settings_manager:
-                        self.settings_manager.global_settings.set_current_settings_dialog_tab(tab_name)
+                        self.settings_manager.global_settings.set_current_settings_dialog_tab(
+                            tab_name
+                        )
 
                     logger.debug(f"Selected tab: {tab_name} (index: {index})")
 
@@ -112,11 +114,13 @@ class SettingsEventCoordinator(QObject):
         """Handle setting change from state manager."""
         try:
             # Update action buttons to reflect changes
-            if 'action_buttons' in self.components:
+            if "action_buttons" in self.components:
                 has_changes = self.state_manager.is_modified()
-                self.components['action_buttons'].set_has_changes(has_changes)
+                self.components["action_buttons"].set_has_changes(has_changes)
 
-            logger.debug(f"Setting changed: {setting_key} = {new_value} (was: {old_value})")
+            logger.debug(
+                f"Setting changed: {setting_key} = {new_value} (was: {old_value})"
+            )
 
         except Exception as e:
             logger.error(f"Error handling setting change: {e}")
@@ -135,8 +139,8 @@ class SettingsEventCoordinator(QObject):
         """Apply all pending settings changes."""
         try:
             success = self.state_manager.apply_changes()
-            if 'action_buttons' in self.components:
-                self.components['action_buttons'].set_apply_success(success)
+            if "action_buttons" in self.components:
+                self.components["action_buttons"].set_apply_success(success)
             self.settings_applied.emit(success)
 
             if success:
@@ -146,8 +150,8 @@ class SettingsEventCoordinator(QObject):
 
         except Exception as e:
             logger.error(f"Error applying settings: {e}")
-            if 'action_buttons' in self.components:
-                self.components['action_buttons'].set_apply_success(False)
+            if "action_buttons" in self.components:
+                self.components["action_buttons"].set_apply_success(False)
 
     def _on_ok_clicked(self):
         """Handle OK button click."""
@@ -193,16 +197,24 @@ class SettingsEventCoordinator(QObject):
                 return
 
             # Call specific update methods based on tab type
-            if tab_name == "Prop Type" and hasattr(tab_widget, "update_active_prop_type_from_settings"):
+            if tab_name == "Prop Type" and hasattr(
+                tab_widget, "update_active_prop_type_from_settings"
+            ):
                 tab_widget.update_active_prop_type_from_settings()
             elif tab_name == "Visibility" and hasattr(tab_widget, "buttons_widget"):
                 tab_widget.buttons_widget.update_visibility_buttons_from_settings()
-            elif tab_name == "Beat Layout" and hasattr(tab_widget, "on_sequence_length_changed"):
+            elif tab_name == "Beat Layout" and hasattr(
+                tab_widget, "on_sequence_length_changed"
+            ):
                 # This requires access to main_widget - will be handled by coordinator
                 pass
-            elif tab_name == "Image Export" and hasattr(tab_widget, "update_image_export_tab_from_settings"):
+            elif tab_name == "Image Export" and hasattr(
+                tab_widget, "update_image_export_tab_from_settings"
+            ):
                 tab_widget.update_image_export_tab_from_settings()
-            elif tab_name == "Codex Exporter" and hasattr(tab_widget, "update_codex_exporter_tab_from_settings"):
+            elif tab_name == "Codex Exporter" and hasattr(
+                tab_widget, "update_codex_exporter_tab_from_settings"
+            ):
                 tab_widget.update_codex_exporter_tab_from_settings()
             elif tab_name == "General" and hasattr(tab_widget, "refresh_settings"):
                 tab_widget.refresh_settings()

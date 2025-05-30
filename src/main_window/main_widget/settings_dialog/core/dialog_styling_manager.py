@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class DialogStylingManager:
     """
     Manages dialog styling and theming.
-    
+
     Responsibilities:
     - Apply glassmorphism styling to dialog
     - Style individual components
@@ -29,10 +29,12 @@ class DialogStylingManager:
         self.dialog = dialog
         self.app_context = app_context
 
-    def apply_styling(self, components: Dict[str, Any], tabs: Dict[str, QWidget] = None):
+    def apply_styling(
+        self, components: Dict[str, Any], tabs: Dict[str, QWidget] = None
+    ):
         """
         Apply complete styling to the dialog and its components.
-        
+
         Args:
             components: Dictionary of dialog components
             tabs: Dictionary of tab widgets
@@ -40,16 +42,16 @@ class DialogStylingManager:
         try:
             # Apply main dialog styling
             self._apply_dialog_styling()
-            
+
             # Apply shadow effects
             self._apply_shadow_effects(components)
-            
+
             # Apply tab content styling
             if tabs:
                 self._apply_tab_content_styling(tabs)
-                
+
             logger.debug("Dialog styling applied successfully")
-            
+
         except Exception as e:
             logger.error(f"Error applying styling: {e}")
 
@@ -138,20 +140,20 @@ class DialogStylingManager:
         """Apply shadow effects to components."""
         try:
             # Import glassmorphism styler
-            from ..core.glassmorphism_styler import GlassmorphismStyler
-            
+            from styles.glassmorphism_styler import GlassmorphismStyler
+
             # Add shadow effect to main container for depth
-            if 'main_container' in components:
+            if "main_container" in components:
                 GlassmorphismStyler.add_shadow_effect(
-                    components['main_container'], offset_y=12, blur_radius=32
+                    components["main_container"], offset_y=12, blur_radius=32
                 )
 
             # Add shadow effect to sidebar for additional depth
-            if 'sidebar' in components:
+            if "sidebar" in components:
                 GlassmorphismStyler.add_shadow_effect(
-                    components['sidebar'], offset_x=2, offset_y=4, blur_radius=12
+                    components["sidebar"], offset_x=2, offset_y=4, blur_radius=12
                 )
-                
+
         except ImportError:
             logger.warning("GlassmorphismStyler not available, skipping shadow effects")
         except Exception as e:
@@ -161,12 +163,12 @@ class DialogStylingManager:
         """Apply styling to tab content widgets."""
         try:
             # Import glassmorphism styler
-            from ..core.glassmorphism_styler import GlassmorphismStyler
-            
+            from styles.glassmorphism_styler import GlassmorphismStyler
+
             # Apply unified tab content styling only to settings dialog tabs
             # This prevents glassmorphism styling from affecting browse tab image quality
             tab_content_style = GlassmorphismStyler.create_unified_tab_content_style()
-            
+
             for tab_name, tab_widget in tabs.items():
                 if tab_widget:
                     # Set object name for styling
@@ -179,8 +181,10 @@ class DialogStylingManager:
                     else:
                         combined_style = tab_content_style
                     tab_widget.setStyleSheet(combined_style)
-                    
+
         except ImportError:
-            logger.warning("GlassmorphismStyler not available, skipping tab content styling")
+            logger.warning(
+                "GlassmorphismStyler not available, skipping tab content styling"
+            )
         except Exception as e:
             logger.error(f"Error applying tab content styling: {e}")

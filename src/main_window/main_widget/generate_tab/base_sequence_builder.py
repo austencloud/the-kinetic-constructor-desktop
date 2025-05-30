@@ -27,13 +27,13 @@ from data.constants import (
 )
 
 from .sequence_builder_start_position_manager import SequenceBuilderStartPosManager
-from main_window.main_widget.sequence_workbench.sequence_workbench import (
-    SequenceWorkbench,
-)
 from interfaces.json_manager_interface import IJsonManager
 
 if TYPE_CHECKING:
     from .generate_tab import GenerateTab
+    from main_window.main_widget.sequence_workbench.sequence_workbench import (
+        SequenceWorkbench,
+    )  # Ensure SequenceWorkbench is imported if not already
 
 
 class BaseSequenceBuilder:
@@ -45,56 +45,59 @@ class BaseSequenceBuilder:
 
     def __init__(self, generate_tab: "GenerateTab"):
         self.generate_tab = generate_tab
-        self.sequence_workbench: SequenceWorkbench = None
+        # self.sequence_workbench: SequenceWorkbench = None # Removed: Will use generate_tab.sequence_workbench
 
         self.main_widget = generate_tab.main_widget
-        self.json_manager = generate_tab.json_manager
+        self.json_manager: IJsonManager = (
+            generate_tab.json_manager
+        )  # Ensure type hint if IJsonManager is appropriate
         self.validation_engine = self.json_manager.ori_validation_engine
         self.ori_calculator = self.json_manager.ori_calculator
-        self.start_pos_manager = SequenceBuilderStartPosManager(self.main_widget)
+        self.start_pos_manager = SequenceBuilderStartPosManager(
+            self.generate_tab
+        )  # Changed to pass generate_tab
 
-    def initialize_sequence(self, length: int, CAP_type: str = "") -> None:
-        if not self.sequence_workbench:
-            # Get sequence workbench through the new widget manager system
-            try:
-                self.sequence_workbench = self.main_widget.widget_manager.get_widget(
-                    "sequence_workbench"
-                )
-                if not self.sequence_workbench:
-                    # Fallback: try direct access for backward compatibility
-                    if hasattr(self.main_widget, "sequence_workbench"):
-                        self.sequence_workbench = self.main_widget.sequence_workbench
-                    else:
-                        import logging
+    def initialize_sequence(
+        self, length: int, CAP_type: str = "", start_position: str = None
+    ) -> None:
+        # Directly use the sequence_workbench from generate_tab
+        sequence_workbench: "SequenceWorkbench" = self.generate_tab.sequence_workbench
+        if not sequence_workbench:
+            import logging
 
-                        logger = logging.getLogger(__name__)
-                        logger.warning(
-                            "sequence_workbench not available in BaseSequenceBuilder"
-                        )
-                        return
-            except AttributeError:
-                # Fallback: try direct access for backward compatibility
-                if hasattr(self.main_widget, "sequence_workbench"):
-                    self.sequence_workbench = self.main_widget.sequence_workbench
-                else:
-                    import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                "sequence_workbench not available in BaseSequenceBuilder via generate_tab"
+            )
+            return
 
-                    logger = logging.getLogger(__name__)
-                    logger.warning(
-                        "sequence_workbench not available in BaseSequenceBuilder"
-                    )
-                    return
-        self.sequence = self.json_manager.loader_saver.load_current_sequence()
+        # Use the json_manager from generate_tab
+        json_manager = self.generate_tab.json_manager
+        self.sequence = json_manager.loader_saver.load_current_sequence()
 
         if len(self.sequence) == 1:
-            self.start_pos_manager.add_start_position(CAP_type)
-            self.sequence = self.json_manager.loader_saver.load_current_sequence()
+            if start_position:
+                # Add specific start position based on user selection
+                self.start_pos_manager.add_specific_start_position(
+                    start_position, CAP_type
+                )
+            else:
+                # Add random start position (existing behavior)
+                self.start_pos_manager.add_start_position(CAP_type)
+            # Reload sequence after start_pos_manager might have modified it via its own json_manager
+            self.sequence = json_manager.loader_saver.load_current_sequence()
 
         try:
-            self.sequence_workbench.beat_frame.populator.modify_layout_for_chosen_number_of_beats(
+            sequence_workbench.beat_frame.populator.modify_layout_for_chosen_number_of_beats(
                 int(length)
             )
-        except Exception:
+        except Exception as e:  # Added specific exception logging
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.error(
+                f"Error modifying layout for number of beats: {e}", exc_info=True
+            )
             raise
 
     def update_start_orientations(
@@ -183,14 +186,40 @@ class BaseSequenceBuilder:
         self, options: list[dict[str, Any]], blue_rot: str, red_rot: str
     ) -> list[dict[str, Any]]:
         """Filters options to match the given rotation directions."""
-        return [
+        filtered_options = [
             opt
             for opt in options
             if (
                 opt[BLUE_ATTRS].get(PROP_ROT_DIR) in [blue_rot, NO_ROT]
                 and opt[RED_ATTRS].get(PROP_ROT_DIR) in [red_rot, NO_ROT]
             )
-        ] or options
+        ]
+
+        # If filtering results in too few options (less than 3), be more lenient
+        if len(filtered_options) < 3:
+            # Try relaxing blue rotation requirement
+            relaxed_options = [
+                opt
+                for opt in options
+                if opt[RED_ATTRS].get(PROP_ROT_DIR) in [red_rot, NO_ROT]
+            ]
+            if len(relaxed_options) >= 3:
+                return relaxed_options
+
+            # If still too few, try relaxing red rotation requirement
+            relaxed_options = [
+                opt
+                for opt in options
+                if opt[BLUE_ATTRS].get(PROP_ROT_DIR) in [blue_rot, NO_ROT]
+            ]
+            if len(relaxed_options) >= 3:
+                return relaxed_options
+
+            # If still too restrictive, return all options to ensure diversity
+            if len(options) > 0:
+                return options
+
+        return filtered_options if filtered_options else options
 
     def _set_float_turns(self, next_beat: dict[str, Any], color: str) -> None:
         """

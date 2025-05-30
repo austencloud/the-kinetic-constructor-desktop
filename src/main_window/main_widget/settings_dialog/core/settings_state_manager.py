@@ -59,6 +59,7 @@ class SettingsStateManager(QObject):
                     "global/background_type": global_settings.get_background_type(),
                     "global/grow_sequence": global_settings.get_grow_sequence(),
                     "global/enable_fades": global_settings.get_enable_fades(),
+                    "global/show_welcome_screen": global_settings.get_show_welcome_screen(),
                 }
             )
 
@@ -233,6 +234,7 @@ class SettingsStateManager(QObject):
             "background_type": global_settings.set_background_type,
             "grow_sequence": global_settings.set_grow_sequence,
             "enable_fades": global_settings.set_enable_fades,
+            "show_welcome_screen": global_settings.set_show_welcome_screen,
         }
 
         if setting_name in setting_map:

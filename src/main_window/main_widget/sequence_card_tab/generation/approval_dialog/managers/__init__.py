@@ -1,0 +1,12 @@
+from .dimension_calculator import ApprovalDialogDimensionCalculator
+from .layout_manager import ApprovalDialogLayoutManager
+from .image_manager import ApprovalDialogImageManager
+from .style_manager import ApprovalDialogStyleManager
+
+# New modular components
+from .circuit_breaker_manager import CircuitBreakerManager
+from .retry_manager import RetryManager
+from .fallback_image_provider import FallbackImageProvider
+from .progress_tracker import ProgressTracker
+from .worker_manager import WorkerManager
+from .synchronous_image_generator import SynchronousImageGenerator

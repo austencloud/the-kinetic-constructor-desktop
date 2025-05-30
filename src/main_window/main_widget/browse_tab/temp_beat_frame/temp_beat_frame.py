@@ -212,6 +212,18 @@ class TempBeatFrame(BaseBeatFrame):
     def update_current_word(self):
         self.current_word = self.get.current_word()
 
+    def load_sequence_data(self, sequence_data: list[dict]) -> None:
+        """
+        Load sequence data into the beat frame.
+
+        This is an alias for load_sequence() to maintain compatibility with
+        the synchronous image generator and other components that expect this method name.
+
+        Args:
+            sequence_data: A list of dictionaries containing the sequence data
+        """
+        self.load_sequence(sequence_data)
+
     def load_sequence(self, sequence: list[dict]) -> None:
         """
         Load a sequence into the beat frame.
@@ -258,7 +270,7 @@ class TempBeatFrame(BaseBeatFrame):
         """Get the construct tab using the new MVVM architecture with graceful fallbacks."""
         try:
             # Try to get construct tab through the new coordinator pattern
-            return self.main_widget.get_tab_widget("construct")
+            return self.main_widget.tab_manager.get_tab_widget("construct")
         except AttributeError:
             # Fallback: try through tab_manager for backward compatibility
             try:

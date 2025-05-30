@@ -39,7 +39,7 @@ class AllBeatsDeleter:
         """Check if the generate tab is currently active using the new MVVM architecture."""
         try:
             # Try to get generate tab through the new coordinator pattern
-            generate_tab = self.main_widget.get_tab_widget("generate")
+            generate_tab = self.main_widget.tab_manager.get_tab_widget("generate")
             if (
                 generate_tab
                 and self.main_widget.right_stack.currentWidget() == generate_tab

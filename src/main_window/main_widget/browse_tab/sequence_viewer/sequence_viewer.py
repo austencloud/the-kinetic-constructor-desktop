@@ -5,9 +5,9 @@ from typing import TYPE_CHECKING, Optional
 
 from main_window.main_widget.metadata_extractor import MetaDataExtractor
 
-from .sequence_viewer_state import SequenceViewerState
-from .sequence_viewer_action_button_panel import SequenceViewerActionButtonPanel
-from ..thumbnail_box.thumbnail_box import ThumbnailBox
+from .state import SequenceViewerState
+from .action_button_panel import SequenceViewerActionButtonPanel
+from ..thumbnail_box.factory import ThumbnailBoxFactory
 
 
 if TYPE_CHECKING:
@@ -33,8 +33,8 @@ class SequenceViewer(QWidget):
         )  # This should match the stretch factor in TabManager (1 for right stack)
         self.setSizePolicy(size_policy)
 
-        # Embed a ThumbnailBox instead of duplicating its components
-        self.thumbnail_box = ThumbnailBox(
+        # Embed a modern integrated thumbnail box for enhanced display
+        self.thumbnail_box = ThumbnailBoxFactory.create_integrated_thumbnail_box(
             browse_tab, word="", thumbnails=[], in_sequence_viewer=True
         )
 

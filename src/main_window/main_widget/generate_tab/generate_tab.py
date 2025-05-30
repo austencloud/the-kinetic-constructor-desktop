@@ -1,12 +1,21 @@
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QSpacerItem, QSizePolicy
-from typing import TYPE_CHECKING
-
+from typing import TYPE_CHECKING, Optional
+import logging
 
 from main_window.main_widget.generate_tab.circular.CAP_type_picker.CAP_picker import (
     CAPPicker,
 )
-from interfaces.settings_manager_interface import ISettingsManager
+from interfaces.settings_manager_interface import ISettingsManager  # ensure import
 from interfaces.json_manager_interface import IJsonManager
+from main_window.main_widget.generate_tab.circular.circular_sequence_builder import (
+    CircularSequenceBuilder,
+)
+from main_window.main_widget.generate_tab.freeform.freeform_sequence_builder import (
+    FreeFormSequenceBuilder,
+)
+from main_window.main_widget.sequence_workbench.sequence_workbench import (
+    SequenceWorkbench,
+)
 
 from .generate_tab_layout_manager import GenerateTabLayoutManager
 from .generate_tab_controller import GenerateTabController
@@ -23,41 +32,53 @@ from .freeform.letter_type_picker_widget.letter_type_picker_widget import (
 from .customize_your_sequence_label import CustomizeSequenceLabel
 from .generate_sequence_button import GenerateSequenceButton
 
-from .freeform.freeform_sequence_builder import FreeFormSequenceBuilder
-from .circular.circular_sequence_builder import CircularSequenceBuilder
-
 if TYPE_CHECKING:
     from main_window.main_widget.main_widget import MainWidget
-# In your settings manager, ensure CAP_type can handle new values
-# Add these to your valid CAP types:
+    from main_window.main_widget.core.tab_manager import TabManager
 
 
 class GenerateTab(QWidget):
     def __init__(
         self,
         main_widget: "MainWidget",
-        settings_manager: ISettingsManager,
-        json_manager: IJsonManager,
+        settings_manager: Optional[ISettingsManager] = None,
+        json_manager: Optional[IJsonManager] = None,
+        main_tab_manager: Optional["TabManager"] = None,
     ):
         super().__init__(main_widget)
         self.main_widget = main_widget
-        self.main_widget.splash_screen.updater.update_progress("GenerateTab")
-        self.settings_manager = settings_manager
-        self.json_manager = json_manager
-        self.settings = settings_manager.get_generate_tab_settings()
-        self.main_layout = QVBoxLayout(self)
-        self.setLayout(self.main_layout)
+        # Settings and JSON manager fallback
+        self.settings_manager = (
+            settings_manager or self.main_widget.app_context.settings_manager
+        )
+        self.settings = (
+            self.settings_manager.get_generate_tab_settings()
+        )  # Get the specific generate tab settings
+        self.json_manager = json_manager or self.main_widget.app_context.json_manager
+        # Tab manager fallback
+        self.main_tab_manager = main_tab_manager or self.main_widget.tab_manager
+        self.logger = logging.getLogger(__name__)
 
-        self.controller = GenerateTabController(self)
-        self.layout_manager = GenerateTabLayoutManager(self)
+        # Initialize with current application state
+        self.sequence_workbench: "SequenceWorkbench" = (
+            self.main_widget.sequence_workbench
+        )
+
+        # Store original state for restoration if needed by isolated generation
+        self.original_sequence_workbench: "SequenceWorkbench" = self.sequence_workbench
+        self.original_json_manager: "IJsonManager" = self.json_manager
+
+        self._init_builders()
+        self._init_ui()
+        self.logger.info("GenerateTab initialized")
+
+    def _init_builders(self) -> None:
         self.freeform_builder = FreeFormSequenceBuilder(self)
         self.circular_builder = CircularSequenceBuilder(self)
 
-        self._create_widgets()
-        self.layout_manager.arrange_layout()
-        self.controller.init_from_settings()
-
-    def _create_widgets(self):
+    def _init_ui(self) -> None:
+        self.main_layout = QVBoxLayout(self)
+        self.setLayout(self.main_layout)
         self.top_spacer = self._create_spacer()
         self.bottom_spacer = self._create_spacer()
         self.customize_sequence_label = CustomizeSequenceLabel(self)
@@ -71,6 +92,11 @@ class GenerateTab(QWidget):
         self.letter_picker = LetterTypePickerWidget(self)
         self.slice_size_toggle = SliceSizeToggle(self)
         self.CAP_type_picker = CAPPicker(self)
+        self.layout_manager = GenerateTabLayoutManager(self)
+        self.controller = GenerateTabController(self)
+
+        self.layout_manager.arrange_layout()
+        self.controller.init_from_settings()
 
     def resizeEvent(self, event):
         available_height = self.height() // 24
@@ -84,4 +110,36 @@ class GenerateTab(QWidget):
     def _resize_spacer(self, spacer: QSpacerItem, height: int):
         spacer.changeSize(
             0, height, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed
+        )
+
+    def reinitialize_builders(self) -> None:
+        """Re-initializes the sequence builders, typically after context changes."""
+        self._init_builders()
+        self.logger.info("Sequence builders re-initialized.")
+
+    def set_isolated_generation_context(
+        self,
+        isolated_workbench: "SequenceWorkbench",
+        isolated_json_manager: "IJsonManager",
+    ) -> None:
+        """Sets the context for isolated generation."""
+        self.original_sequence_workbench = self.sequence_workbench
+        self.original_json_manager = self.json_manager
+        self.sequence_workbench = isolated_workbench
+        self.json_manager = isolated_json_manager
+        self.reinitialize_builders()
+        self.logger.info("GenerateTab context switched to isolated generation.")
+
+    def restore_main_context(self) -> None:
+        """Restores the main application context after isolated generation."""
+        self.sequence_workbench = self.original_sequence_workbench
+        self.json_manager = self.original_json_manager
+        self.reinitialize_builders()
+        self.logger.info("GenerateTab context restored to main application.")
+
+    def __getattr__(self, name):
+        if name == "settings":
+            return self.settings_manager
+        raise AttributeError(
+            f"'{type(self).__name__}' object has no attribute '{name}'"
         )
