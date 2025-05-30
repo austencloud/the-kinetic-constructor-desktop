@@ -33,26 +33,12 @@ class SequencePropertiesManager:
             app_context: Application context with dependencies. If None, uses legacy adapter.
         """
         self.sequence: list[dict] = []
+        self.app_context = app_context
 
-        # Set up dependencies
-        if app_context:
-            self.app_context = app_context
-            self.settings_manager = app_context.settings_manager
-            self.json_manager = app_context.json_manager
-        else:
-            # Legacy compatibility - use adapter with fallback
-            try:
-                from core.migration_adapters import AppContextAdapter
-
-                self.app_context = None
-                self.settings_manager = AppContextAdapter.settings_manager()
-                self.json_manager = AppContextAdapter.json_manager()
-            except RuntimeError:
-                # AppContextAdapter not initialized yet - use None for now
-                # This will be set up later when the adapter is available
-                self.app_context = None
-                self.settings_manager = None
-                self.json_manager = None
+        # Lazy-loaded dependencies to avoid circular dependency
+        self._settings_manager = None
+        self._json_manager = None
+        self._dependencies_initialized = False
 
         # Default properties
         self.properties = {
@@ -73,6 +59,45 @@ class SequencePropertiesManager:
             "is_mirrored_swapped_CAP": MirroredSwappedCAPChecker(self),
             "is_rotated_swapped_CAP": RotatedSwappedCAPChecker(self),
         }
+
+    @property
+    def settings_manager(self):
+        """Lazy property for settings_manager to avoid circular dependency."""
+        if self._settings_manager is None:
+            self._initialize_dependencies()
+        return self._settings_manager
+
+    @property
+    def json_manager(self):
+        """Lazy property for json_manager to avoid circular dependency."""
+        if self._json_manager is None:
+            self._initialize_dependencies()
+        return self._json_manager
+
+    def _initialize_dependencies(self):
+        """Initialize dependencies lazily to avoid circular dependency."""
+        if self._dependencies_initialized:
+            return
+
+        if self.app_context:
+            # Use dependency injection
+            self._settings_manager = self.app_context.settings_manager
+            self._json_manager = self.app_context.json_manager
+        else:
+            # Legacy compatibility - use adapter with fallback
+            try:
+                from core.migration_adapters import AppContextAdapter
+
+                self._settings_manager = AppContextAdapter.settings_manager()
+                self._json_manager = AppContextAdapter.json_manager()
+            except (RuntimeError, AttributeError):
+                # AppContextAdapter not initialized yet or circular dependency
+                # Use None for now - this will be retried on next access
+                self._settings_manager = None
+                self._json_manager = None
+                return  # Don't mark as initialized so we retry later
+
+        self._dependencies_initialized = True
 
     def instantiate_sequence(self, sequence):
         self.sequence = sequence[1:]

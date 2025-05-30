@@ -51,14 +51,32 @@ class AppContextAdapter:
         Note: This requires a global adapter instance to be set.
         """
         if not hasattr(cls, "_global_adapter") or cls._global_adapter is None:
-            # Return None instead of raising exception during initialization
+            # Try to resolve from dependency container directly as fallback
+            try:
+                from core.dependency_container import get_container
+                from interfaces.settings_manager_interface import ISettingsManager
+
+                container = get_container()
+                return container.safe_resolve(ISettingsManager, None)
+            except Exception:
+                # Return None instead of raising exception during initialization
+                import logging
+
+                logger = logging.getLogger(__name__)
+                logger.warning("AppContextAdapter not initialized yet - returning None")
+                return None
+
+        try:
+            return cls._global_adapter._app_context.settings_manager
+        except Exception as e:
+            # Handle circular dependency gracefully
             import logging
 
             logger = logging.getLogger(__name__)
-            logger.warning("AppContextAdapter not initialized yet - returning None")
+            logger.warning(
+                f"Circular dependency detected in settings_manager access: {e}"
+            )
             return None
-
-        return cls._global_adapter._app_context.settings_manager
 
     @classmethod
     def json_manager(cls) -> "IJsonManager":
@@ -68,14 +86,30 @@ class AppContextAdapter:
         Note: This requires a global adapter instance to be set.
         """
         if not hasattr(cls, "_global_adapter") or cls._global_adapter is None:
-            # Return None instead of raising exception during initialization
+            # Try to resolve from dependency container directly as fallback
+            try:
+                from core.dependency_container import get_container
+                from interfaces.json_manager_interface import IJsonManager
+
+                container = get_container()
+                return container.safe_resolve(IJsonManager, None)
+            except Exception:
+                # Return None instead of raising exception during initialization
+                import logging
+
+                logger = logging.getLogger(__name__)
+                logger.warning("AppContextAdapter not initialized yet - returning None")
+                return None
+
+        try:
+            return cls._global_adapter._app_context.json_manager
+        except Exception as e:
+            # Handle circular dependency gracefully
             import logging
 
             logger = logging.getLogger(__name__)
-            logger.warning("AppContextAdapter not initialized yet - returning None")
+            logger.warning(f"Circular dependency detected in json_manager access: {e}")
             return None
-
-        return cls._global_adapter._app_context.json_manager
 
     @classmethod
     def selected_arrow(cls) -> Optional["Arrow"]:

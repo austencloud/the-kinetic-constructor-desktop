@@ -40,15 +40,23 @@ class SequenceDataLoaderSaver:
         )
         self.app_context = app_context
 
-        # Create sequence properties manager with dependency injection
-        if app_context:
-            self.sequence_properties_manager = SequencePropertiesManagerFactory.create(
-                app_context
-            )
-        else:
-            self.sequence_properties_manager = (
-                SequencePropertiesManagerFactory.create_legacy()
-            )
+        # Lazy-loaded sequence properties manager to avoid circular dependency
+        self._sequence_properties_manager = None
+
+    @property
+    def sequence_properties_manager(self):
+        """Lazy property for sequence_properties_manager to avoid circular dependency."""
+        if self._sequence_properties_manager is None:
+            # Create sequence properties manager with dependency injection
+            if self.app_context:
+                self._sequence_properties_manager = (
+                    SequencePropertiesManagerFactory.create(self.app_context)
+                )
+            else:
+                self._sequence_properties_manager = (
+                    SequencePropertiesManagerFactory.create_legacy()
+                )
+        return self._sequence_properties_manager
 
     def load_current_sequence(self) -> list[dict]:
         try:
