@@ -135,7 +135,18 @@ class ThumbnailGenerator:
         return info
 
     def _create_image_filename(self, structural_variation_number):
-        base_word = self.beat_frame.get().current_word()
+        # Handle both real BeatFrameGetter and mock interface
+        if hasattr(self.beat_frame, "get"):
+            # Check if get is a method (TempBeatFrame) or attribute (SequenceBeatFrame)
+            if callable(self.beat_frame.get):
+                # TempBeatFrame case: get() returns MockGetInterface
+                base_word = self.beat_frame.get().current_word()
+            else:
+                # SequenceBeatFrame case: get is BeatFrameGetter instance
+                base_word = self.beat_frame.get.current_word()
+        else:
+            # Fallback
+            base_word = "UNKNOWN"
         return f"{base_word}_ver{structural_variation_number}.png"
 
     def _save_image(

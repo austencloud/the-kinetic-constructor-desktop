@@ -33,7 +33,8 @@ class ImageExportBeatFactory:
                 self.export_manager.main_widget.sequence_workbench
             )
         else:
-
+            # For TempBeatFrame, we need to create a proper instance with main_widget
+            # The issue is that TempBeatFrame needs proper infrastructure to create BeatViews
             class MockParent:
                 def __init__(self, main_widget):
                     self.main_widget = main_widget

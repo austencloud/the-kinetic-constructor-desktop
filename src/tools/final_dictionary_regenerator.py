@@ -30,6 +30,10 @@ def regenerate_dictionary_images_final(main_widget=None):
 
     try:
         # Get dictionary path
+        import sys
+        import os
+
+        sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         from utils.path_helpers import get_dictionary_path
 
         dictionary_path = get_dictionary_path()

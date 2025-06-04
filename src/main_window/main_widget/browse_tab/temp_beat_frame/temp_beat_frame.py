@@ -207,10 +207,41 @@ class TempBeatFrame(QWidget):
 
     def _setup_image_export_manager(self):
         """Setup the image export manager for this beat frame."""
-        # Always use mock image export manager for compatibility
-        # This avoids complex import issues when running standalone tools
-        logger.debug("Using mock image export manager for compatibility")
-        self.image_export_manager = self._create_mock_image_export_manager()
+        # Try to use real image export manager first, fall back to mock if needed
+        try:
+            if self.main_widget:
+                # Try to create real image export manager
+                self.image_export_manager = self._create_real_image_export_manager()
+                logger.debug(
+                    "Using real image export manager for dictionary regeneration"
+                )
+            else:
+                # Fall back to mock if no main widget
+                logger.debug(
+                    "No main widget available, using mock image export manager"
+                )
+                self.image_export_manager = self._create_mock_image_export_manager()
+        except Exception as e:
+            logger.warning(f"Failed to create real image export manager: {e}")
+            logger.debug("Falling back to mock image export manager")
+            self.image_export_manager = self._create_mock_image_export_manager()
+
+    def _create_real_image_export_manager(self):
+        """Create a real image export manager using the actual ImageExportManager."""
+        try:
+            # Import the real ImageExportManager
+            from main_window.main_widget.sequence_workbench.sequence_beat_frame.image_export_manager.image_export_manager import (
+                ImageExportManager,
+            )
+
+            # Create real image export manager with this beat frame and its class
+            real_export_manager = ImageExportManager(self, self.__class__)
+            logger.debug("Successfully created real ImageExportManager")
+            return real_export_manager
+
+        except Exception as e:
+            logger.error(f"Failed to create real ImageExportManager: {e}")
+            raise
 
     def _create_mock_image_export_manager(self):
         """Create a mock image export manager for compatibility."""

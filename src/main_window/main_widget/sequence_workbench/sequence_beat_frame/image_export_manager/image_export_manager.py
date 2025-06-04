@@ -1,6 +1,43 @@
 from datetime import datetime
 from typing import TYPE_CHECKING
-from src.settings_manager.global_settings.app_context import AppContext
+
+# Try both absolute and relative imports for compatibility
+try:
+    from src.settings_manager.global_settings.app_context import AppContext
+except ImportError:
+    try:
+        from settings_manager.global_settings.app_context import AppContext
+    except ImportError:
+        # Fallback for testing environments
+        class AppContext:
+            @staticmethod
+            def settings_manager():
+                class MockImageExportSettings:
+                    def get_image_export_setting(self, setting_name):
+                        return (
+                            True if setting_name == "include_start_position" else False
+                        )
+
+                    def get_all_image_export_options(self):
+                        return {
+                            "add_beat_numbers": True,
+                            "add_reversal_symbols": True,
+                            "add_user_info": True,
+                            "add_word": True,
+                            "add_difficulty_level": True,
+                            "include_start_position": True,
+                            "combined_grids": False,
+                            "additional_height_top": 0,
+                            "additional_height_bottom": 0,
+                        }
+
+                class MockSettingsManager:
+                    def __init__(self):
+                        self.image_export = MockImageExportSettings()
+
+                return MockSettingsManager()
+
+
 from .image_export_layout_handler import ImageExportLayoutHandler
 from .image_creator.image_creator import ImageCreator
 from .image_export_beat_factory import ImageExportBeatFactory
