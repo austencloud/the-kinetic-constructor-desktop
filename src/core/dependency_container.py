@@ -274,7 +274,7 @@ def _register_managers(container: DependencyContainer) -> None:
     """Register various manager services."""
     # Dictionary Data Manager - using correct path (it's a dataclass)
     try:
-        from main_window.main_widget.browse_tab.sequence_picker.dictionary_data_manager import (
+        from settings_manager.global_settings.dictionary_data_manager import (
             DictionaryDataManager,
         )
 

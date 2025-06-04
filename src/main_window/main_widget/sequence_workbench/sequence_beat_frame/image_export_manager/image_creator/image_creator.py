@@ -31,7 +31,17 @@ class ImageCreator:
         self.export_manager = export_manager
         self.beat_frame = export_manager.beat_frame
         self.layout_manager = export_manager.layout_handler
-        self.beat_size = self.beat_frame.start_pos_view.beat.width()
+        # Get beat size with safety check for None beat
+        if (
+            hasattr(self.beat_frame, "start_pos_view")
+            and self.beat_frame.start_pos_view
+            and hasattr(self.beat_frame.start_pos_view, "beat")
+            and self.beat_frame.start_pos_view.beat
+        ):
+            self.beat_size = self.beat_frame.start_pos_view.beat.width()
+        else:
+            # Default beat size if start_pos_view.beat is None
+            self.beat_size = 950  # Standard beat size
         self.beat_factory = export_manager.beat_factory
         self.beat_scale = 1
         self._setup_drawers()

@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from PyQt6.QtGui import QImage
 from PIL import Image
 
+
 from main_window.main_widget.browse_tab.temp_beat_frame.temp_beat_frame import (
     TempBeatFrame,
 )

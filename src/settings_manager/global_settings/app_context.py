@@ -1,5 +1,5 @@
 from typing import TYPE_CHECKING, Optional
-from main_window.main_widget.browse_tab.sequence_picker.dictionary_data_manager import (
+from settings_manager.global_settings.dictionary_data_manager import (
     DictionaryDataManager,
 )
 from main_window.main_widget.special_placement_loader import SpecialPlacementLoader

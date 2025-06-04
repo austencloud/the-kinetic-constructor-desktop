@@ -47,42 +47,87 @@ class TabManager(QObject):
         self._stack_based_tabs = {"construct", "generate", "learn", "write"}
 
         # Register tab factories
+        print("DEBUG: TabManager.__init__() - About to register tab factories")
         self._register_tab_factories()
+        print(
+            f"DEBUG: TabManager.__init__() - Registered factories: {list(self._tab_factories.keys())}"
+        )
 
     def _register_tab_factories(self) -> None:
         """Register factories for creating different tab types."""
-        # Import tab factories
-        try:
-            from main_window.main_widget.construct_tab.construct_tab_factory import (
-                ConstructTabFactory,
-            )
-            from main_window.main_widget.generate_tab.generate_tab_factory import (
-                GenerateTabFactory,
-            )
-            from main_window.main_widget.browse_tab.factory import (
-                BrowseTabFactory,
-            )
-            from main_window.main_widget.learn_tab.learn_tab_factory import (
-                LearnTabFactory,
-            )
-            from main_window.main_widget.write_tab.write_tab_factory import (
-                WriteTabFactory,
-            )
-            from main_window.main_widget.sequence_card_tab.utils.tab_factory import (
-                SequenceCardTabFactory,
-            )
+        # Import tab factories individually to handle failures gracefully
+        self._tab_factories = {}
 
-            self._tab_factories = {
-                "construct": ConstructTabFactory,
-                "generate": GenerateTabFactory,
-                "browse": BrowseTabFactory,
-                "learn": LearnTabFactory,
-                "write": WriteTabFactory,
-                "sequence_card": SequenceCardTabFactory,
-            }
+        # Define tab factory imports with their names
+        tab_imports = [
+            (
+                "construct",
+                "main_window.main_widget.construct_tab.construct_tab_factory",
+                "ConstructTabFactory",
+            ),
+            (
+                "generate",
+                "main_window.main_widget.generate_tab.generate_tab_factory",
+                "GenerateTabFactory",
+            ),
+            (
+                "browse",
+                "browse_tab.integration.browse_tab_factory",
+                "BrowseTabFactory",
+            ),
+            (
+                "learn",
+                "main_window.main_widget.learn_tab.learn_tab_factory",
+                "LearnTabFactory",
+            ),
+            (
+                "write",
+                "main_window.main_widget.write_tab.write_tab_factory",
+                "WriteTabFactory",
+            ),
+            (
+                "sequence_card",
+                "main_window.main_widget.sequence_card_tab.utils.tab_factory",
+                "SequenceCardTabFactory",
+            ),
+        ]
 
-        except ImportError as e:
-            logger.error(f"Failed to import tab factory: {e}")
+        # Import each factory individually
+        for tab_name, module_path, factory_class_name in tab_imports:
+            try:
+                print(
+                    f"DEBUG: Attempting to import {tab_name} factory from {module_path}"
+                )
+                module = __import__(module_path, fromlist=[factory_class_name])
+                factory_class = getattr(module, factory_class_name)
+                self._tab_factories[tab_name] = factory_class
+                print(f"DEBUG: ✅ Registered tab factory: {tab_name}")
+                logger.debug(f"✅ Registered tab factory: {tab_name}")
+            except ImportError as e:
+                print(f"DEBUG: ⚠️ Failed to import {tab_name} tab factory: {e}")
+                logger.warning(f"⚠️ Failed to import {tab_name} tab factory: {e}")
+                # Continue with other factories
+            except AttributeError as e:
+                print(
+                    f"DEBUG: ⚠️ Failed to get {factory_class_name} from {module_path}: {e}"
+                )
+                logger.warning(
+                    f"⚠️ Failed to get {factory_class_name} from {module_path}: {e}"
+                )
+                # Continue with other factories
+            except Exception as e:
+                print(f"DEBUG: ❌ Unexpected error importing {tab_name} factory: {e}")
+                logger.error(f"❌ Unexpected error importing {tab_name} factory: {e}")
+                import traceback
+
+                traceback.print_exc()
+
+        print(
+            f"DEBUG: Registered {len(self._tab_factories)} tab factories: {list(self._tab_factories.keys())}"
+        )
+        logger.info(
+            f"Registered {len(self._tab_factories)} tab factories: {list(self._tab_factories.keys())}"
+        )
 
     def initialize_tabs(self) -> None:
         """Initialize all tabs lazily."""
@@ -396,7 +441,8 @@ class TabManager(QObject):
         except Exception as e:
             logger.warning(f"Failed to save current tab to settings: {e}")
 
-        # Switch stack widgets
+        # ALWAYS switch stack widgets, even if tab already existed
+        print(f"DEBUG: About to call _switch_stack_widgets for {tab_name}")
         self._switch_stack_widgets(tab_name, tab_widget)
 
         # Emit signal
@@ -416,9 +462,53 @@ class TabManager(QObject):
 
             # Set the appropriate stack indices for the tab
             if tab_name == "construct":
-                # Construct tab: show sequence_workbench (index 0) and start_pos_picker (index 0)
+                # Construct tab: show sequence_workbench (index 0) and determine right panel based on sequence state
                 self.coordinator.left_stack.setCurrentIndex(0)  # sequence_workbench
-                self.coordinator.right_stack.setCurrentIndex(0)  # start_pos_picker
+                print(
+                    f"DEBUG: Construct tab - setting left stack to index 0 (sequence_workbench)"
+                )
+
+                # Determine right panel based on sequence length (like the old tab switcher)
+                try:
+                    json_manager = self.app_context.json_manager
+                    current_sequence = json_manager.loader_saver.load_current_sequence()
+                    sequence_length = len(current_sequence)
+                    print(f"DEBUG: Current sequence length: {sequence_length}")
+
+                    # Show option picker if sequence has beats (length > 1), otherwise show start pos picker
+                    if sequence_length > 1:
+                        # Option picker should be at index 2 based on _add_tab_to_stack logic
+                        target_index = 2
+                        print(
+                            f"DEBUG: Sequence has beats, setting right stack to index {target_index} (option_picker)"
+                        )
+                        self.coordinator.right_stack.setCurrentIndex(target_index)
+                    else:
+                        # Start position picker should be at index 0
+                        target_index = 0
+                        print(
+                            f"DEBUG: Sequence is empty/start-only, setting right stack to index {target_index} (start_pos_picker)"
+                        )
+                        self.coordinator.right_stack.setCurrentIndex(target_index)
+
+                    # Verify the switch worked
+                    actual_index = self.coordinator.right_stack.currentIndex()
+                    actual_widget = self.coordinator.right_stack.currentWidget()
+                    print(
+                        f"DEBUG: Right stack now at index {actual_index}, widget: {type(actual_widget).__name__ if actual_widget else 'None'}"
+                    )
+
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to determine construct tab right panel from sequence: {e}"
+                    )
+                    print(f"DEBUG: Exception determining right panel: {e}")
+                    # Fallback to start position picker
+                    self.coordinator.right_stack.setCurrentIndex(0)  # start_pos_picker
+                    print(
+                        "DEBUG: Fallback - setting right stack to index 0 (start_pos_picker)"
+                    )
+
             elif tab_name == "generate":
                 # Generate tab: show sequence_workbench (index 0) and generate widget
                 self.coordinator.left_stack.setCurrentIndex(0)  # sequence_workbench

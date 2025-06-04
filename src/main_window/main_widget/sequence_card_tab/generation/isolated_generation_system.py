@@ -16,6 +16,7 @@ import uuid
 from typing import TYPE_CHECKING, Optional, List, Dict, Any
 from pathlib import Path
 
+
 from main_window.main_widget.browse_tab.temp_beat_frame.temp_beat_frame import (
     TempBeatFrame,
 )

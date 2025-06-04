@@ -87,7 +87,7 @@
   },
   "integration_settings": {
     "browse_tab_v2_module": "browse_tab_v2.browse_tab_v2",
-    "thumbnail_card_module": "browse_tab_v2.components.modern_thumbnail_card",
+    "thumbnail_card_module": "browse_tab_v2.components.thumbnail_card",
     "sequence_viewer_module": "browse_tab_v2.components.modern_sequence_viewer",
     "cache_service_module": "browse_tab_v2.services.cache_service",
     "image_service_module": "browse_tab_v2.services.fast_image_service"

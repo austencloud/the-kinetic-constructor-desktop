@@ -1,8 +1,5 @@
 from typing import TYPE_CHECKING
 from PyQt6.QtWidgets import QApplication
-from main_window.main_widget.browse_tab.sequence_picker.filter_stack.sequence_picker_filter_stack import (
-    BrowseTabSection,
-)
 from main_window.main_widget.tab_index import TAB_INDEX
 from main_window.main_widget.tab_indices import LeftStackIndex, RightStackIndex
 from main_window.main_widget.tab_name import TabName
@@ -10,6 +7,11 @@ from main_window.main_widget.tab_name import TabName
 if TYPE_CHECKING:
     from main_window.main_widget.main_widget import MainWidget
     from core.application_context import ApplicationContext
+
+
+class BrowseTabSection:
+    """Temporary replacement for the deleted BrowseTabSection enum."""
+    FILTER_SELECTOR = "filter_selector"
 
 
 class MainWidgetTabSwitcher:

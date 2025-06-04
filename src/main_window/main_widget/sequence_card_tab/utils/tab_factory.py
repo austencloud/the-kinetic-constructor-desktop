@@ -56,5 +56,8 @@ class SequenceCardTabFactory(WidgetFactory):
             # Create a placeholder widget if the real tab can't be imported
             return QWidget(parent)
         except Exception as e:
+            import traceback
+
             logger.error(f"Failed to create SequenceCardTab: {e}")
+            logger.error(f"Full traceback: {traceback.format_exc()}")
             raise

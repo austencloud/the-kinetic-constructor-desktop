@@ -150,10 +150,16 @@ class SequenceCardPlaceholder(QFrame):
 
     def _stop_animation(self):
         """Stop the loading animation."""
-        self.animation_timer.stop()
+        if hasattr(self, "animation_timer") and self.animation_timer:
+            try:
+                self.animation_timer.stop()
+            except RuntimeError:
+                pass
 
     def _update_animation(self):
         """Update the animation frame and redraw."""
+        if not hasattr(self, "animation_timer") or not self.animation_timer:
+            return
         self.animation_frame = (self.animation_frame + 5) % 100
         self._create_placeholder_image()
 
@@ -196,4 +202,8 @@ class SequenceCardPlaceholder(QFrame):
     def cleanup(self):
         """Clean up resources when the placeholder is no longer needed."""
         self._stop_animation()
-        self.animation_timer.deleteLater()
+        if hasattr(self, "animation_timer") and self.animation_timer:
+            try:
+                self.animation_timer.deleteLater()
+            except RuntimeError:
+                pass

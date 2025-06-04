@@ -4,6 +4,7 @@ from PyQt6.QtWidgets import QApplication
 from typing import Optional
 import logging
 
+
 from main_window.main_widget.browse_tab.temp_beat_frame.temp_beat_frame import (
     TempBeatFrame,
 )

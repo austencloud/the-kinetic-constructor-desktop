@@ -22,8 +22,8 @@ from .generation.generated_sequence_store import GeneratedSequenceStore
 
 # New imports for refactored classes
 from .ui_manager import SequenceCardUIManager
-from .dictionary_mode_controller import SequenceCardDictionaryModeController
-from .generation_mode_controller import SequenceCardGenerationModeController
+from .controllers.dictionary_mode_controller import SequenceCardDictionaryModeController
+from .controllers.generation_mode_controller import SequenceCardGenerationModeController
 
 from typing import TYPE_CHECKING
 

@@ -76,12 +76,12 @@ class SequenceCardHeader(QFrame):
         self.mode_toggle = ModeToggleWidget(self)
         self.mode_toggle.mode_change_requested.connect(self.mode_change_requested.emit)
 
-        # VISUAL HIERARCHY: Mode toggle is more important, so give it more space and prominence
-        top_layout.addWidget(self.title_label, 1)  # Title gets 1 part
-        top_layout.addStretch(1)  # Small spacer
+        # UPDATED: Reduce toggle size while maintaining visual importance through modern styling
+        top_layout.addWidget(self.title_label, 3)  # Title gets more space
+        top_layout.addStretch(1)  # Spacer
         top_layout.addWidget(
-            self.mode_toggle, 2
-        )  # Mode toggle gets 2 parts (more prominent)
+            self.mode_toggle, 1
+        )  # Mode toggle gets less space but maintains importance through styling
 
         return top_layout
 
@@ -258,21 +258,31 @@ class SequenceCardHeader(QFrame):
         button_layout = QHBoxLayout()
         button_layout.setSpacing(12)
 
-        self.export_button = self._create_action_button(
+        self.export_page_button = self._create_action_button(
             "Export Page",
             self.sequence_car_tab.page_exporter.export_current_page_as_image,
+        )
+        self.export_all_button = self._create_action_button(
+            "Export All Pages",
+            self.sequence_car_tab.page_exporter.export_all_pages_as_images,
+        )
+        self.export_pdf_button = self._create_action_button(
+            "Export as PDF",
+            self.sequence_car_tab.page_exporter.export_all_pages_as_pdf,
         )
         self.refresh_button = self._create_action_button(
             "Refresh", self.sequence_car_tab.load_sequences
         )
-        self.regenerate_button = self._create_action_button(
-            "Regenerate Images", self.sequence_car_tab.regenerate_all_images
+        self.refresh_cache_button = self._create_action_button(
+            "Refresh Cache", self.sequence_car_tab.page_exporter.clear_page_cache
         )
 
         button_layout.addStretch()
-        button_layout.addWidget(self.export_button)
+        button_layout.addWidget(self.export_page_button)
+        button_layout.addWidget(self.export_all_button)
+        button_layout.addWidget(self.export_pdf_button)
         button_layout.addWidget(self.refresh_button)
-        button_layout.addWidget(self.regenerate_button)
+        button_layout.addWidget(self.refresh_cache_button)
         button_layout.addStretch()
 
         return button_layout
