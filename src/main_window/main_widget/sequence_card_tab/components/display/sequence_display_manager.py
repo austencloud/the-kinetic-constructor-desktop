@@ -69,6 +69,7 @@ class SequenceDisplayManager:
             logging.debug(f"Error creating initial preview grid: {e}")
             self.preview_grid = QGridLayout()  # Placeholder
 
+        # Use original page renderer for stable image display
         self.page_renderer = PageRenderer(
             self.page_factory, self.layout_calculator, self.config, self.preview_grid
         )
@@ -203,8 +204,12 @@ class SequenceDisplayManager:
                 self.preview_grid = QGridLayout()  # Fallback
                 self.page_renderer.set_preview_grid(self.preview_grid)
 
+            # Get current mode for proper page isolation
+            current_mode = getattr(self.sequence_card_tab, "mode_manager", None)
+            mode = current_mode.current_mode if current_mode else None
+
             success = self.sequence_processor.process_sequences(
-                selected_length, selected_levels
+                selected_length, selected_levels, mode
             )
 
         except Exception as e:

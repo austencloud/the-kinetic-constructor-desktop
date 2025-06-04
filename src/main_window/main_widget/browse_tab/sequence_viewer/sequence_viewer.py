@@ -33,7 +33,7 @@ class SequenceViewer(QWidget):
         )  # This should match the stretch factor in TabManager (1 for right stack)
         self.setSizePolicy(size_policy)
 
-        # Embed a modern integrated thumbnail box for enhanced display
+        # Embed an integrated thumbnail box for enhanced display
         self.thumbnail_box = ThumbnailBoxFactory.create_integrated_thumbnail_box(
             browse_tab, word="", thumbnails=[], in_sequence_viewer=True
         )

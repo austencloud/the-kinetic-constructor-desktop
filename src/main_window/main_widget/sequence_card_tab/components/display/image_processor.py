@@ -14,7 +14,7 @@ from PyQt6.QtCore import QSize
 if TYPE_CHECKING:
     from ..pages.printable_factory import PrintablePageFactory
 
-from .core.image_processor_coordinator import ImageProcessorCoordinator
+from .image_core.image_processor_coordinator import ImageProcessorCoordinator
 
 DEFAULT_IMAGE_CACHE_SIZE = 1000
 

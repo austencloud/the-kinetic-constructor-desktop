@@ -14,6 +14,7 @@ class SplashUpdater:
             "MenuBarWidget": "Initializing menu...",
             "NavigationWidget": "Setting up navigation...",
             "SequenceWorkbench": "Loading sequences...",
+            "BrowseTabPreloading": "Pre-loading browse tab data...",
             "BrowseTab": "Building dictionary...",
             "LearnTab": "Preparing lessons...",
             "WriteTab": "Setting up Act Tab...",
@@ -32,4 +33,16 @@ class SplashUpdater:
         self.splash_screen.progress_bar.set_value(self.current_progress)
         message = self.widget_messages.get(widget_name, "Loading components...")
         self.splash_screen.currently_loading_label.setText(message)
-        # QApplication.processEvents()
+        # Process events to keep splash screen responsive
+        from PyQt6.QtWidgets import QApplication
+
+        QApplication.processEvents()
+
+    def update_detailed_progress(self, message: str, progress_percent: int):
+        """Update progress with detailed message and specific percentage."""
+        self.splash_screen.progress_bar.set_value(progress_percent)
+        self.splash_screen.currently_loading_label.setText(message)
+        # Process events to keep splash screen responsive
+        from PyQt6.QtWidgets import QApplication
+
+        QApplication.processEvents()

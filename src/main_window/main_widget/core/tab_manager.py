@@ -284,7 +284,7 @@ class TabManager(QObject):
 
     def switch_to_tab(self, tab_name: str) -> bool:
         """
-        Switch to a specific tab.
+        Switch to a specific tab with instant visual feedback.
 
         Args:
             tab_name: Name of the tab to switch to
@@ -292,6 +292,89 @@ class TabManager(QObject):
         Returns:
             True if successful, False otherwise
         """
+        from PyQt6.QtCore import QTimer
+        from PyQt6.QtWidgets import QApplication
+
+        # CRITICAL: Instant visual switching for browse tab
+        if tab_name == "browse":
+            return self._switch_to_browse_instantly(tab_name)
+
+        # For other tabs, use normal switching
+        return self._switch_to_tab_normal(tab_name)
+
+    def _switch_to_browse_instantly(self, tab_name: str) -> bool:
+        """Switch to browse tab with instant visual feedback."""
+        from PyQt6.QtCore import QTimer
+        from PyQt6.QtWidgets import QApplication
+
+        # Create tab if it doesn't exist (lightweight creation)
+        tab_widget = self._ensure_tab_exists(tab_name)
+        if not tab_widget:
+            return False
+
+        # INSTANT: Update UI state immediately
+        old_tab = self._current_tab
+        self._current_tab = tab_name
+
+        # INSTANT: Switch layout immediately without any animations
+        self._switch_layout_instantly(tab_name, tab_widget)
+
+        # INSTANT: Process events to ensure immediate visual update
+        QApplication.processEvents()
+
+        # INSTANT: Emit signal for immediate UI updates
+        self.tab_changed.emit(tab_name)
+
+        # BACKGROUND: Defer heavy operations
+        QTimer.singleShot(
+            1, lambda: self._complete_browse_switch_background(tab_name, old_tab)
+        )
+
+        logger.info(f"Instantly switched to browse tab (background loading)")
+        return True
+
+    def _switch_layout_instantly(self, tab_name: str, tab_widget: QWidget) -> None:
+        """Switch layout instantly without animations or fade effects."""
+        # Disable any animations temporarily
+        fade_manager = getattr(self.coordinator, "fade_manager", None)
+        original_fade_state = None
+
+        if fade_manager and hasattr(fade_manager, "set_fades_enabled"):
+            original_fade_state = fade_manager.fades_enabled()
+            fade_manager.set_fades_enabled(False)
+
+        try:
+            # Use full-widget layout for browse tab
+            self.coordinator.switch_to_full_widget_layout(tab_widget)
+        finally:
+            # Restore original fade state
+            if fade_manager and original_fade_state is not None:
+                fade_manager.set_fades_enabled(original_fade_state)
+
+    def _complete_browse_switch_background(self, tab_name: str, old_tab: str) -> None:
+        """Complete browse tab switch operations in background."""
+        try:
+            # Save to settings
+            if hasattr(self.app_context, "settings_manager") and hasattr(
+                self.app_context.settings_manager, "global_settings"
+            ):
+                self.app_context.settings_manager.global_settings.set_current_tab(
+                    tab_name
+                )
+                logger.debug(f"Saved current tab '{tab_name}' to global settings")
+
+            # Initialize browse tab content if needed
+            tab_widget = self._tabs.get(tab_name)
+            if tab_widget and hasattr(tab_widget, "initialize_content_async"):
+                tab_widget.initialize_content_async()
+
+            logger.info(f"Completed background switch from {old_tab} to {tab_name}")
+
+        except Exception as e:
+            logger.warning(f"Error in background browse switch completion: {e}")
+
+    def _switch_to_tab_normal(self, tab_name: str) -> bool:
+        """Normal tab switching for non-browse tabs."""
         # Create tab if it doesn't exist
         tab_widget = self._create_tab(tab_name)
         if not tab_widget:
@@ -322,113 +405,54 @@ class TabManager(QObject):
         logger.info(f"Switched from {old_tab} to {tab_name}")
         return True
 
-    def _find_widget_index_in_stack(self, stack, target_widget_type: str) -> int:
-        """Find the index of a widget type in a stack."""
-        for i in range(stack.count()):
-            widget = stack.widget(i)
-            if widget and widget.__class__.__name__ == target_widget_type:
-                return i
-        return -1
-
-    def _find_widget_in_stack_by_attribute(
-        self, stack, tab_widget, attribute_name: str
-    ) -> int:
-        """Find the index of a widget by checking if tab_widget has the attribute."""
-        if hasattr(tab_widget, attribute_name):
-            target_widget = getattr(tab_widget, attribute_name)
-            for i in range(stack.count()):
-                if stack.widget(i) is target_widget:
-                    return i
-        return -1
-
     def _switch_stack_widgets(self, tab_name: str, tab_widget: QWidget) -> None:
-        """Switch the layout to show the correct tab using hybrid approach."""
-        import logging
-
-        logger = logging.getLogger(__name__)
-
-        # Determine if this is a full-widget tab or stack-based tab
+        """Switch stack widgets based on tab type."""
         if tab_name in self._full_widget_tabs:
-            # Use full-widget layout for browse and sequence_card tabs
-            logger.info(f"Switching to full-widget layout for {tab_name} tab")
+            # Full-widget tabs use the main content area
             self.coordinator.switch_to_full_widget_layout(tab_widget)
-            return
-
-        # For stack-based tabs, use the traditional stack approach
-        logger.info(f"Switching to stack-based layout for {tab_name} tab")
-
-        # Set width ratios based on tab type
-        if tab_name == "learn":
-            width_ratio = (2, 1)  # Learn tab uses 2/3 for codex, 1/3 for lesson
         else:
-            width_ratio = (1, 1)  # Default is equal split for construct/generate
+            # Stack-based tabs use the left/right stack layout
+            self.coordinator.switch_to_stack_layout()
 
-        # Switch to stack layout with appropriate ratios
-        self.coordinator.switch_to_stack_layout(width_ratio[0], width_ratio[1])
+            # Set the appropriate stack indices for the tab
+            if tab_name == "construct":
+                # Construct tab: show sequence_workbench (index 0) and start_pos_picker (index 0)
+                self.coordinator.left_stack.setCurrentIndex(0)  # sequence_workbench
+                self.coordinator.right_stack.setCurrentIndex(0)  # start_pos_picker
+            elif tab_name == "generate":
+                # Generate tab: show sequence_workbench (index 0) and generate widget
+                self.coordinator.left_stack.setCurrentIndex(0)  # sequence_workbench
+                # Find generate tab index in right stack
+                for i in range(self.coordinator.right_stack.count()):
+                    widget = self.coordinator.right_stack.widget(i)
+                    if widget == tab_widget:
+                        self.coordinator.right_stack.setCurrentIndex(i)
+                        break
+            elif tab_name == "learn":
+                # Learn tab: show codex (index 1) and learn widget
+                self.coordinator.left_stack.setCurrentIndex(1)  # codex
+                # Find learn tab index in right stack
+                for i in range(self.coordinator.right_stack.count()):
+                    widget = self.coordinator.right_stack.widget(i)
+                    if widget == tab_widget:
+                        self.coordinator.right_stack.setCurrentIndex(i)
+                        break
+            else:
+                # Default: show sequence_workbench and find tab widget
+                self.coordinator.left_stack.setCurrentIndex(0)  # sequence_workbench
+                for i in range(self.coordinator.right_stack.count()):
+                    widget = self.coordinator.right_stack.widget(i)
+                    if widget == tab_widget:
+                        self.coordinator.right_stack.setCurrentIndex(i)
+                        break
 
-        # Switch left and right stacks based on tab using dynamic widget lookup
-        if tab_name == "construct":
-            # Show sequence_workbench for construct tab (dynamic lookup)
-            left_index = self._find_widget_index_in_stack(
-                self.coordinator.left_stack, "SequenceWorkbench"
-            )
-            if left_index >= 0:
-                self.coordinator.left_stack.setCurrentIndex(left_index)
+    def _ensure_tab_exists(self, tab_name: str) -> Optional[QWidget]:
+        """Ensure tab exists with minimal overhead."""
+        if tab_name in self._tabs:
+            return self._tabs[tab_name]
 
-            # Show construct tab's start_pos_picker on right stack (dynamic lookup)
-            right_index = self._find_widget_index_in_stack(
-                self.coordinator.right_stack, "StartPosPicker"
-            )
-            if right_index >= 0:
-                self.coordinator.right_stack.setCurrentIndex(right_index)
-            logger.info(
-                "Switched to construct tab: sequence_workbench (left), start_pos_picker (right)"
-            )
-        elif tab_name == "generate":
-            # Show sequence_workbench for generate tab (dynamic lookup)
-            left_index = self._find_widget_index_in_stack(
-                self.coordinator.left_stack, "SequenceWorkbench"
-            )
-            if left_index >= 0:
-                self.coordinator.left_stack.setCurrentIndex(left_index)
-
-            # Show generate tab on right stack (dynamic lookup)
-            right_index = self._find_widget_index_in_stack(
-                self.coordinator.right_stack, "GenerateTab"
-            )
-            if right_index >= 0:
-                self.coordinator.right_stack.setCurrentIndex(right_index)
-
-            logger.info(
-                "Switched to generate tab: sequence_workbench (left), generate_tab (right)"
-            )
-        elif tab_name == "learn":
-            # Show codex for learn tab (dynamic lookup)
-            left_index = self._find_widget_index_in_stack(
-                self.coordinator.left_stack, "Codex"
-            )
-            if left_index >= 0:
-                self.coordinator.left_stack.setCurrentIndex(left_index)
-
-            # Show learn tab on right stack (dynamic lookup)
-            right_index = self._find_widget_index_in_stack(
-                self.coordinator.right_stack, "LearnTab"
-            )
-            if right_index >= 0:
-                self.coordinator.right_stack.setCurrentIndex(right_index)
-
-            logger.info("Switched to learn tab: codex (left), learn_tab (right)")
-        else:
-            # Default: show sequence_workbench on left, tab widget on right
-            self.coordinator.left_stack.setCurrentIndex(0)
-            if tab_widget in [
-                self.coordinator.right_stack.widget(i)
-                for i in range(self.coordinator.right_stack.count())
-            ]:
-                self.coordinator.right_stack.setCurrentWidget(tab_widget)
-                logger.info(
-                    f"Switched to {tab_name} tab: sequence_workbench (left), {tab_name} (right)"
-                )
+        # Create tab with minimal initialization for instant switching
+        return self._create_tab(tab_name)
 
     def get_tab_widget(self, tab_name: str) -> Optional[QWidget]:
         """

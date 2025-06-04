@@ -70,6 +70,73 @@ class SequenceCardPageExporter:
         # Export the pages
         self._export_pages(pages, export_dir)
 
+    def export_current_page_as_image(self):
+        """
+        Export only the currently visible page as a high-quality print-ready image.
+
+        This method:
+        1. Gets the currently visible page
+        2. Prompts the user for a directory to save the image
+        3. Creates a high-quality image using original source files
+        4. Saves the image with appropriate naming
+        """
+        self.logger.info("Starting current page export")
+
+        # Get the current page
+        current_page = self._get_current_page()
+        if not current_page:
+            self.ui_manager.show_warning_message(
+                "No Current Page",
+                "There is no current page to export. Please ensure sequences are loaded.",
+            )
+            return
+
+        self.logger.info("Found current page to export")
+
+        # Get the export directory
+        export_dir = self.ui_manager.get_export_directory()
+        if not export_dir:
+            return  # User cancelled
+
+        # Export just the current page
+        self._export_pages([current_page], export_dir)
+
+    def _get_current_page(self) -> QWidget:
+        """
+        Get the currently visible page from the sequence card tab.
+
+        Returns:
+            QWidget: The current page widget, or None if no page is visible
+        """
+        # Try to get the current page from the printable displayer
+        if hasattr(self.sequence_card_tab, "printable_displayer"):
+            if hasattr(self.sequence_card_tab.printable_displayer, "current_page"):
+                current_page = self.sequence_card_tab.printable_displayer.current_page
+                if current_page:
+                    self.logger.info("Using current page from PrintableDisplayer")
+                    return current_page
+
+            # Try to get from the manager
+            if hasattr(self.sequence_card_tab.printable_displayer, "manager"):
+                manager = self.sequence_card_tab.printable_displayer.manager
+                if hasattr(manager, "current_page") and manager.current_page:
+                    self.logger.info("Using current page from SequenceDisplayManager")
+                    return manager.current_page
+
+                # If no current_page property, try to get the first page
+                if hasattr(manager, "pages") and manager.pages:
+                    self.logger.info(
+                        "Using first page from SequenceDisplayManager as current"
+                    )
+                    return manager.pages[0]
+
+        # Fallback: try to get the first page from the tab's pages
+        if self.sequence_card_tab.pages:
+            self.logger.info("Using first page from tab as current")
+            return self.sequence_card_tab.pages[0]
+
+        return None
+
     def _get_pages_to_export(self) -> List[QWidget]:
         """
         Get the pages to export from the sequence card tab.

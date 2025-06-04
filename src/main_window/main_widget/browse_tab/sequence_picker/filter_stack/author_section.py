@@ -82,11 +82,18 @@ class AuthorSection(FilterSectionBase):
         return vbox
 
     def _create_author_button(self, author: str) -> StyledButton:
-        btn = StyledButton(author)
-        btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn.clicked.connect(partial(self.handle_author_click, author))
-        self.buttons[author] = btn
-        return btn
+        button = StyledButton(author)
+        button.setMinimumSize(120, 30)
+        button.setMaximumSize(200, 40)
+
+        # INSTANT SWITCHING: Use instant handler instead of direct connection
+        instant_handler = self.create_instant_button_handler(
+            lambda: self.handle_author_click(author), f"Author: {author}"
+        )
+        button.clicked.connect(instant_handler)
+
+        self.buttons[author] = button
+        return button
 
     def _create_sequence_count_label(self, author: str) -> QLabel:
         count = self.sequence_counts.get(author, 0)

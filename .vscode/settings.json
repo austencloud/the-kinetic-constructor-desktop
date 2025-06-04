@@ -14,7 +14,6 @@
   "python.testing.pytestArgs": ["tests"],
   "python.testing.unittestEnabled": false,
   "python.testing.pytestEnabled": true,
-
   "editor.defaultFormatter": "esbenp.prettier-vscode",
   "[xml]": {
     "editor.defaultFormatter": "DotJoshJohnson.xml"
@@ -22,7 +21,18 @@
   "python.analysis.typeCheckingMode": "off",
   "python.analysis.extraPaths": ["src"],
   "python.analysis.autoImportCompletions": true,
-  "files.exclude": {
-    "**/__init__.py": true
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe",
+  "python.terminal.activateEnvironment": true,
+  "files.autoSave": "onFocusChange",
+  "files.autoSaveDelay": 300,
+  "python.analysis.memory.keepLibraryAst": false,
+  "search.exclude": {
+    "**/browse_thumbnails": true,
+    "**/__pycache__": true
+  },
+  "python.formatting.provider": "black",
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": "explicit"
   }
 }

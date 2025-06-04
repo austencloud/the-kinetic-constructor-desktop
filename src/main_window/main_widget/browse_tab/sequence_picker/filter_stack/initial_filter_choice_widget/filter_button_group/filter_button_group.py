@@ -25,12 +25,14 @@ class FilterButtonGroup(QWidget):
         self.main_widget = filter_choice_widget.main_widget
         self.settings_manager = self.main_widget.settings_manager
         self.filter_choice_widget = filter_choice_widget
+        self.original_handler = handler
 
         # Modern responsive sizing
         self._setup_responsive_sizing()
 
         self.button = FilterButton(label)
-        self.button.clicked.connect(handler)
+        # INSTANT SWITCHING: Override with instant response handler
+        self.button.clicked.connect(self._instant_click_handler)
 
         # Enhanced responsiveness with proper timing
         QTimer.singleShot(50, self._ensure_modern_responsiveness)
@@ -159,3 +161,213 @@ class FilterButtonGroup(QWidget):
 
             logger = logging.getLogger(__name__)
             logger.debug(f"Error in modern responsiveness setup: {e}")
+
+    def _instant_click_handler(self):
+        """Handle button clicks with INSTANT visual feedback."""
+        from PyQt6.QtWidgets import QApplication
+        from PyQt6.QtCore import QTimer
+
+        try:
+            # INSTANT: Provide immediate visual feedback
+            self._show_instant_feedback()
+
+            # INSTANT: Process events for immediate UI update
+            QApplication.processEvents()
+
+            # INSTANT: Disable animations temporarily
+            self._disable_animations_temporarily()
+
+            # INSTANT: Execute the handler immediately for visual changes
+            if hasattr(self.original_handler, "func") and hasattr(
+                self.original_handler, "args"
+            ):
+                # This is a partial function - check if it's show_section
+                if (
+                    hasattr(self.original_handler.func, "__name__")
+                    and "show_section" in self.original_handler.func.__name__
+                ):
+                    # Section switching - do it instantly
+                    self._instant_section_switch()
+                else:
+                    # Filter application - do it instantly with background loading
+                    self._instant_filter_application()
+            else:
+                # Direct handler call
+                self._instant_direct_handler()
+
+            print(f"✅ Filter button '{self.button.text()}' switched INSTANTLY")
+
+        except Exception as e:
+            print(f"❌ Error in instant filter button click: {e}")
+            # Fallback to original handler if instant fails
+            try:
+                self.original_handler()
+            except Exception as fallback_error:
+                print(f"❌ Fallback handler also failed: {fallback_error}")
+
+    def _show_instant_feedback(self):
+        """Show immediate visual feedback for button click."""
+        try:
+            # Flash button to show it was clicked
+            self.button.setStyleSheet(
+                """
+                FilterButton {
+                    background: rgba(0, 120, 255, 0.3);
+                    border: 2px solid rgba(0, 120, 255, 0.8);
+                }
+            """
+            )
+
+            # Reset after short delay
+            QTimer.singleShot(150, self._reset_button_style)
+
+        except Exception as e:
+            print(f"Error showing instant feedback: {e}")
+
+    def _reset_button_style(self):
+        """Reset button style after feedback."""
+        try:
+            self.button.setStyleSheet("")  # Reset to default
+        except Exception as e:
+            print(f"Error resetting button style: {e}")
+
+    def _disable_animations_temporarily(self):
+        """Temporarily disable animations for instant switching."""
+        try:
+            fade_manager = getattr(self.main_widget, "fade_manager", None)
+            if fade_manager and hasattr(fade_manager, "set_fades_enabled"):
+                fade_manager.set_fades_enabled(False)
+                # Re-enable after instant switch
+                QTimer.singleShot(200, lambda: fade_manager.set_fades_enabled(True))
+        except Exception as e:
+            print(f"Error disabling animations: {e}")
+
+    def _instant_section_switch(self):
+        """Handle instant section switching."""
+        from PyQt6.QtWidgets import QApplication
+
+        try:
+            # Extract section name from partial function
+            if hasattr(self.original_handler, "args") and self.original_handler.args:
+                section_name = self.original_handler.args[0]
+
+                # Get filter stack
+                filter_stack = self.filter_choice_widget.filter_selector
+
+                # INSTANT: Switch immediately without fade
+                if hasattr(filter_stack, "show_section"):
+                    # Direct section switching
+                    filter_stack.show_section(section_name)
+
+                # INSTANT: Force immediate visual update
+                QApplication.processEvents()
+
+                print(f"✅ Section '{section_name}' switched instantly")
+
+        except Exception as e:
+            print(f"Error in instant section switch: {e}")
+            # Fallback to original handler
+            self.original_handler()
+
+    def _instant_filter_application(self):
+        """Handle instant filter application with background loading."""
+        from PyQt6.QtWidgets import QApplication
+        from PyQt6.QtCore import QTimer
+
+        try:
+            # Extract filter criteria from partial function
+            if hasattr(self.original_handler, "args") and self.original_handler.args:
+                filter_criteria = self.original_handler.args[0]
+
+                # Get browse tab components
+                browse_tab = self.filter_choice_widget.browse_tab
+                filter_controller = browse_tab.filter_controller
+
+                # INSTANT: Switch to sequence picker view immediately
+                self._instant_switch_to_sequence_picker()
+
+                # INSTANT: Show loading state
+                self._show_filter_loading_state(filter_criteria)
+
+                # INSTANT: Process events for immediate visual update
+                QApplication.processEvents()
+
+                # BACKGROUND: Apply filter after visual switch
+                QTimer.singleShot(
+                    1, lambda: self._apply_filter_background(filter_criteria)
+                )
+
+                print(
+                    f"✅ Filter '{filter_criteria}' applied instantly with background loading"
+                )
+
+        except Exception as e:
+            print(f"Error in instant filter application: {e}")
+            # Fallback to original handler
+            self.original_handler()
+
+    def _instant_direct_handler(self):
+        """Handle direct handler calls instantly."""
+        from PyQt6.QtWidgets import QApplication
+
+        try:
+            # Execute handler immediately
+            self.original_handler()
+
+            # Process events for immediate update
+            QApplication.processEvents()
+
+        except Exception as e:
+            print(f"Error in direct handler: {e}")
+            raise
+
+    def _instant_switch_to_sequence_picker(self):
+        """Instantly switch to sequence picker view."""
+        try:
+            browse_tab = self.filter_choice_widget.browse_tab
+
+            # Switch internal stack to sequence picker
+            if hasattr(browse_tab, "internal_left_stack"):
+                sequence_picker_index = 1  # Sequence picker is typically at index 1
+                browse_tab.internal_left_stack.setCurrentIndex(sequence_picker_index)
+
+            # Update browse settings
+            browse_tab.browse_settings.set_current_section("sequence_picker")
+
+        except Exception as e:
+            print(f"Error switching to sequence picker: {e}")
+
+    def _show_filter_loading_state(self, filter_criteria):
+        """Show loading state for filter application."""
+        try:
+            browse_tab = self.filter_choice_widget.browse_tab
+
+            if hasattr(browse_tab, "sequence_picker") and hasattr(
+                browse_tab.sequence_picker, "control_panel"
+            ):
+                control_panel = browse_tab.sequence_picker.control_panel
+
+                # Show loading message
+                if hasattr(control_panel, "currently_displaying_label"):
+                    control_panel.currently_displaying_label.setText(
+                        f"Loading {filter_criteria}..."
+                    )
+
+                # Clear current sequences
+                if hasattr(browse_tab.sequence_picker, "scroll_widget"):
+                    browse_tab.sequence_picker.scroll_widget.clear_layout()
+
+        except Exception as e:
+            print(f"Error showing loading state: {e}")
+
+    def _apply_filter_background(self, filter_criteria):
+        """Apply filter in background after instant visual switch."""
+        try:
+            browse_tab = self.filter_choice_widget.browse_tab
+            filter_controller = browse_tab.filter_controller
+
+            # Apply filter without fade (since we already switched)
+            filter_controller.apply_filter(filter_criteria, fade=False)
+
+        except Exception as e:
+            print(f"Error applying filter in background: {e}")

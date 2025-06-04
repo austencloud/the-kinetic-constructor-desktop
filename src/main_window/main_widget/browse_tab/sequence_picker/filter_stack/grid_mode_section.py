@@ -91,8 +91,16 @@ class GridModeSection(FilterSectionBase):
     def create_grid_mode_button(self, grid_mode: str) -> StyledButton:
         """Create and configure the grid mode selection button."""
         button = StyledButton(grid_mode)
-        button.setCursor(Qt.CursorShape.PointingHandCursor)
-        button.clicked.connect(partial(self.handle_grid_mode_click, grid_mode.lower()))
+
+        # INSTANT SWITCHING: Use instant handler instead of direct connection
+        instant_handler = self.create_instant_button_handler(
+            lambda: self.browse_tab.filter_controller.apply_filter(
+                {"grid_mode": grid_mode}
+            ),
+            f"Grid Mode: {grid_mode}",
+        )
+        button.clicked.connect(instant_handler)
+
         self.buttons[grid_mode] = button
         return button
 

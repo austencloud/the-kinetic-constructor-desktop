@@ -30,7 +30,12 @@ class FilterByLevelSection(FilterSectionBase):
         self.ui.setup_ui()
 
     def handle_level_click(self, level: int) -> None:
-        self.browse_tab.filter_controller.apply_filter({"level": level})
+        # INSTANT SWITCHING: Create instant handler for level clicks
+        instant_handler = self.create_instant_button_handler(
+            lambda: self.browse_tab.filter_controller.apply_filter({"level": level}),
+            f"Level: {level}",
+        )
+        instant_handler()
 
     def resizeEvent(self, event: QEvent) -> None:
         self.resize_handler.handle_resize()

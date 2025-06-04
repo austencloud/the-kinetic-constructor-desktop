@@ -84,13 +84,13 @@ class BrowseTab(QWidget):
 
         self.persistence_manager = BrowseTabPersistenceManager(self)
 
-        # Initialize lazy loading system
+        # PERFORMANCE FIX: Defer lazy loading initialization until after startup
         self._lazy_loader: Optional[BrowseTabLazyLoader] = None
         self._lazy_loading_enabled = False
-        self._initialize_lazy_loading()
+        # self._initialize_lazy_loading()  # Defer this
 
-        # FILTER RESPONSIVENESS FIX: Simple deferred initialization
-        QTimer.singleShot(100, self._complete_initialization)
+        # CRITICAL FIX: Remove deferred initialization to prevent layout shifts
+        self._complete_initialization()
 
     def _setup_browse_tab_layout(self):
         from PyQt6.QtWidgets import QHBoxLayout, QStackedWidget
@@ -224,21 +224,27 @@ class BrowseTab(QWidget):
         logger = logging.getLogger(__name__)
 
         try:
-            # Apply saved browse state
-            self.persistence_manager.apply_saved_browse_state()
+            # PERFORMANCE FIX: Defer heavy state loading until after startup
+            # Apply saved browse state - this was causing the 33% hang
+            from PyQt6.QtCore import QTimer
+
+            QTimer.singleShot(50, self.persistence_manager.apply_saved_browse_state)
 
             # Simple activation to ensure filter buttons work
             self._simple_activation()
 
-            # CRITICAL FIX: Check if browse tab is the current tab and trigger thumbnail loading
+            # PERFORMANCE FIX: Defer thumbnail loading until after startup for speed
+            # The heavy thumbnail loading was causing the 1-minute startup delay
             try:
                 current_tab = self.settings_manager.global_settings.get_current_tab()
                 if current_tab == "browse":
                     logger.info(
-                        "🎯 Browse tab is current tab during initialization - triggering thumbnail loading"
+                        "🎯 Browse tab is current tab - deferring thumbnail loading for speed"
                     )
-                    # Delay thumbnail loading to ensure UI is ready
-                    QTimer.singleShot(200, self._ensure_all_visible_thumbnails_loaded)
+                    # PERFORMANCE FIX: Use lightweight activation instead
+                    from PyQt6.QtCore import QTimer
+
+                    QTimer.singleShot(100, self._lightweight_thumbnail_activation)
             except Exception as e:
                 logger.debug(f"Error checking current tab during initialization: {e}")
 
@@ -282,10 +288,10 @@ class BrowseTab(QWidget):
             # Simple activation when tab becomes visible
             self._simple_activation()
 
-            # Fix thumbnail initialization race condition
+            # PERFORMANCE FIX: Defer heavy thumbnail loading to prevent startup blocking
             from PyQt6.QtCore import QTimer
 
-            QTimer.singleShot(100, self._ensure_all_visible_thumbnails_loaded)
+            QTimer.singleShot(500, self._ensure_all_visible_thumbnails_loaded)
 
         except Exception as e:
             import logging
@@ -442,3 +448,162 @@ class BrowseTab(QWidget):
     def is_lazy_loading_enabled(self) -> bool:
         """Check if lazy loading is currently enabled."""
         return self._lazy_loading_enabled
+
+    # CRITICAL FIX: Async loading methods for non-blocking tab switching
+    def show_loading_state(self, message: str = "Loading..."):
+        """Show loading state with message."""
+        from PyQt6.QtWidgets import QLabel
+        from PyQt6.QtCore import Qt
+
+        try:
+            if not hasattr(self, "_loading_overlay"):
+                self._loading_overlay = QLabel(message, self)
+                self._loading_overlay.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                self._loading_overlay.setStyleSheet(
+                    """
+                    QLabel {
+                        background-color: rgba(0, 0, 0, 0.8);
+                        color: white;
+                        font-size: 18px;
+                        font-weight: bold;
+                        padding: 30px;
+                        border-radius: 15px;
+                        border: 2px solid #6366f1;
+                    }
+                """
+                )
+
+            self._loading_overlay.setText(message)
+            self._loading_overlay.resize(300, 100)
+            self._loading_overlay.move(self.width() // 2 - 150, self.height() // 2 - 50)
+            self._loading_overlay.show()
+            self._loading_overlay.raise_()
+
+        except Exception as e:
+            print(f"Error showing loading state: {e}")
+
+    def hide_loading_state(self):
+        """Hide loading state."""
+        try:
+            if hasattr(self, "_loading_overlay"):
+                self._loading_overlay.hide()
+        except Exception as e:
+            print(f"Error hiding loading state: {e}")
+
+    def _ensure_visible_thumbnails_loaded_async(self):
+        """Load visible thumbnails asynchronously in chunks."""
+        from PyQt6.QtCore import QTimer
+        from PyQt6.QtWidgets import QApplication
+
+        try:
+            # Light thumbnail loading - only load what's immediately visible
+            if hasattr(self, "ui_updater"):
+                # Use a lightweight update that doesn't block
+                QTimer.singleShot(10, self._load_thumbnails_chunk)
+        except Exception as e:
+            print(f"Error in async thumbnail loading: {e}")
+
+    def _load_thumbnails_chunk(self):
+        """Load a small chunk of thumbnails."""
+        from PyQt6.QtWidgets import QApplication
+
+        try:
+            # Process only a few thumbnails at a time
+            if hasattr(self.ui_updater, "update_and_display_ui_lightweight"):
+                self.ui_updater.update_and_display_ui_lightweight()
+            else:
+                # Fallback to regular update but with processing
+                QApplication.processEvents()
+
+        except Exception as e:
+            print(f"Error loading thumbnail chunk: {e}")
+
+    def finalize_activation(self):
+        """Finalize browse tab activation after all async operations."""
+        try:
+            # Final cleanup and state setting
+            if hasattr(self, "state"):
+                self.state.is_fully_loaded = True
+
+            # Ensure all components are properly sized
+            self.updateGeometry()
+
+        except Exception as e:
+            print(f"Error finalizing activation: {e}")
+
+    def _lightweight_thumbnail_activation(self):
+        """Lightweight thumbnail activation that doesn't block startup."""
+        try:
+            logger = logging.getLogger(__name__)
+            logger.info("🚀 Starting lightweight thumbnail activation")
+
+            # Initialize lazy loading now that startup is complete
+            if not self._lazy_loading_enabled:
+                self._initialize_lazy_loading()
+
+            # Just show the basic layout without heavy loading
+            if hasattr(self.ui_updater, "update_and_display_ui_lightweight"):
+                self.ui_updater.update_and_display_ui_lightweight()
+
+            # Enable progressive loading in background
+            from PyQt6.QtCore import QTimer
+
+            QTimer.singleShot(500, self._progressive_thumbnail_loading)
+
+            logger.info("✅ Lightweight thumbnail activation completed")
+
+        except Exception as e:
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Error in lightweight thumbnail activation: {e}")
+
+    def _progressive_thumbnail_loading(self):
+        """Load thumbnails progressively in the background."""
+        try:
+            logger = logging.getLogger(__name__)
+            logger.info("🔄 Starting progressive thumbnail loading")
+
+            # Load only visible thumbnails first
+            if self._lazy_loader:
+                self._lazy_loader.force_load_visible()
+
+            logger.info("✅ Progressive thumbnail loading started")
+
+        except Exception as e:
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Error in progressive thumbnail loading: {e}")
+
+    def initialize_content_async(self):
+        """Initialize browse tab content asynchronously after instant switch."""
+        from PyQt6.QtCore import QTimer
+
+        try:
+            logger = logging.getLogger(__name__)
+            logger.info("🔄 Initializing browse tab content asynchronously")
+
+            # Hide any loading indicators
+            self.hide_loading_state()
+
+            # Initialize lazy loading if not already done
+            if not self._lazy_loading_enabled:
+                self._initialize_lazy_loading()
+
+            # Load visible thumbnails progressively
+            QTimer.singleShot(50, self._ensure_visible_thumbnails_loaded_async)
+
+            # Update filters in background
+            QTimer.singleShot(100, self._update_filters_async)
+
+            logger.info("✅ Browse tab async initialization started")
+
+        except Exception as e:
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Error in async content initialization: {e}")
+
+    def _update_filters_async(self):
+        """Update filters asynchronously."""
+        try:
+            if hasattr(self.sequence_picker, "update_filters_lightweight"):
+                self.sequence_picker.update_filters_lightweight()
+
+        except Exception as e:
+            print(f"Error updating filters async: {e}")

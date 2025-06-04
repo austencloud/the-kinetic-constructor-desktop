@@ -34,7 +34,7 @@ class GenerationControlsPanel(QWidget):
         self.create_header(layout)
         self.create_parameter_section(layout)
         self.create_action_section(layout)
-        self.create_progress_section(layout)
+        # self.create_progress_section(layout) # Progress section is now part of the header
 
     def create_header(self, layout):
         self.header_label = QLabel("Generate Sequences")
@@ -83,7 +83,7 @@ class GenerationControlsPanel(QWidget):
         self.progress_display = ProgressDisplayManager()
         frame_layout.addWidget(self.progress_display)
 
-        layout.addWidget(self.progress_frame)
+        # layout.addWidget(self.progress_frame) # Progress section is now part of the header
 
     def setup_connections(self):
         self.action_controls.generate_requested.connect(self.generate_requested.emit)
@@ -120,7 +120,21 @@ class GenerationControlsPanel(QWidget):
         self.action_controls.set_generation_enabled(enabled)
 
     def show_progress(self, current: int, total: int):
-        self.progress_display.show_progress(current, total)
+        # self.progress_display.show_progress(current, total) # Progress display is now handled by the header
+        if hasattr(self.parent(), "header") and hasattr(
+            self.parent().header, "progress_bar"
+        ):
+            self.parent().header.progress_bar.setMaximum(total)
+            self.parent().header.progress_bar.setValue(current)
+            self.parent().header.progress_bar.setVisible(True)
+            if hasattr(self.parent().header, "progress_container"):
+                self.parent().header.progress_container.setVisible(True)
 
     def hide_progress(self):
-        self.progress_display.hide_progress()
+        # self.progress_display.hide_progress() # Progress display is now handled by the header
+        if hasattr(self.parent(), "header") and hasattr(
+            self.parent().header, "progress_bar"
+        ):
+            self.parent().header.progress_bar.setVisible(False)
+            if hasattr(self.parent().header, "progress_container"):
+                self.parent().header.progress_container.setVisible(False)

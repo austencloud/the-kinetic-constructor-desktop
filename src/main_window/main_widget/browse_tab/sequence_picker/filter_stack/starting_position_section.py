@@ -83,8 +83,16 @@ class StartingPositionSection(FilterSectionBase):
     def create_position_button(self, position: str) -> StyledButton:
         """Create and configure the position selection button."""
         button = StyledButton(position)
-        button.setCursor(Qt.CursorShape.PointingHandCursor)
-        button.clicked.connect(partial(self.handle_position_click, position))
+
+        # INSTANT SWITCHING: Use instant handler instead of direct connection
+        instant_handler = self.create_instant_button_handler(
+            lambda: self.browse_tab.filter_controller.apply_filter(
+                {"starting_position": position}
+            ),
+            f"Starting Position: {position}",
+        )
+        button.clicked.connect(instant_handler)
+
         self.buttons[position] = button
         return button
 

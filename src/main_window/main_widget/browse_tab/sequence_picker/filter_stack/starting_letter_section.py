@@ -69,12 +69,16 @@ class StartingLetterSection(FilterSectionBase):
         self.buttons[letter] = button
         button.setProperty(LETTER, letter)
         button.installEventFilter(self)
-        # Use partial to pass the letter to the slot
-        button.clicked.connect(
-            lambda: self.browse_tab.filter_controller.apply_filter(
-                {"starting_letter": letter}
-            )
+
+        # INSTANT SWITCHING: Use instant handler instead of direct filter application
+        instant_handler = self.create_instant_button_handler(
+            lambda l=letter: self.browse_tab.filter_controller.apply_filter(
+                {"starting_letter": l}
+            ),
+            f"Starting Letter: {letter}",
         )
+        button.clicked.connect(instant_handler)
+
         return button
 
     def _get_starting_letter_sequence_counts(self) -> dict[str, int]:

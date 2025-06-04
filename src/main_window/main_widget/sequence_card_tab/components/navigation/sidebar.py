@@ -8,7 +8,6 @@ from .sidebar_header import SidebarHeader
 from .sidebar_styler import SidebarStyler
 from .transition_overlay import TransitionOverlay
 from .level_filter import LevelFilterWidget
-from .mode_toggle import ModeToggleWidget
 
 if TYPE_CHECKING:
     from ...tab import SequenceCardTab
@@ -17,7 +16,6 @@ if TYPE_CHECKING:
 class SequenceCardNavSidebar(QWidget):
     length_selected = pyqtSignal(int)
     level_filter_changed = pyqtSignal(list)
-    mode_change_requested = pyqtSignal(object)
 
     def __init__(self, sequence_card_tab: "SequenceCardTab"):
         super().__init__(sequence_card_tab)
@@ -28,7 +26,6 @@ class SequenceCardNavSidebar(QWidget):
             self.settings_manager.get_setting("sequence_card_tab", "last_length", 16)
         )
         self.level_filter = None
-        self.mode_toggle = None
         self.setup_ui()
         SidebarStyler.apply_modern_styling(self)
 
@@ -39,11 +36,6 @@ class SequenceCardNavSidebar(QWidget):
 
         self.header = SidebarHeader()
         main_layout.addWidget(self.header)
-
-        # Add mode toggle widget at the top
-        self.mode_toggle = ModeToggleWidget()
-        self.mode_toggle.mode_change_requested.connect(self.on_mode_change_requested)
-        main_layout.addWidget(self.mode_toggle)
 
         self.scroll_area = LengthScrollArea()
         self.scroll_area.length_selected.connect(self.on_length_selected)
@@ -72,10 +64,6 @@ class SequenceCardNavSidebar(QWidget):
     def on_level_filter_changed(self, selected_levels: list):
         """Handle level filter changes and emit signal."""
         self.level_filter_changed.emit(selected_levels)
-
-    def on_mode_change_requested(self, mode):
-        """Handle mode change requests and emit signal."""
-        self.mode_change_requested.emit(mode)
 
     def select_length(self, length: int):
         if length in self.scroll_area.length_frames:

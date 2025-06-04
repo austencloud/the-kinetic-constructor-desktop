@@ -246,7 +246,7 @@ class SequenceCardModeManager(QObject):
         if mode == SequenceCardMode.DICTIONARY:
             return "Browse and filter sequences from the saved dictionary"
         elif mode == SequenceCardMode.GENERATION:
-            return "Generate fresh, never-before-seen sequences on-demand"
+            return "Generate fresh sequences and view approved sequences as paginated previews"
         else:
             return "Unknown mode"
 

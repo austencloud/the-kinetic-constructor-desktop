@@ -56,21 +56,35 @@ class SequenceCardTab(QWidget):
         self.settings_manager_obj = SequenceCardSettingsHandler(settings_manager)
         self.resource_manager = SequenceCardResourceManager(self)
         self.initializer = SequenceCardInitializer(self)
-        self.content_area = SequenceCardContentArea(self)
 
         # Instantiate managers required by controllers before controllers themselves
         self.generation_manager = GenerationManager(self)
-        self.generated_sequence_store = GeneratedSequenceStore(self)
+
+        # Create basic components first so we have the image exporter
+        self._create_basic_components()
+
+        # Now create the store with the image exporter
+        self.generated_sequence_store = GeneratedSequenceStore(
+            self, self.image_exporter
+        )
 
         self.ui_manager = SequenceCardUIManager(self)
         self.dictionary_mode_controller = SequenceCardDictionaryModeController(self)
         self.generation_mode_controller = SequenceCardGenerationModeController(self)
-
-        self._create_and_init_components()
         self.ui_manager.init_ui()
+        self._create_and_init_components()
+
+    def _create_basic_components(self):
+        """Create basic components needed by UI manager."""
+        self.nav_sidebar = SequenceCardNavSidebar(self)
+        self.content_area = SequenceCardContentArea(self)
+
+        # Create exporters needed by header buttons
+        self.image_exporter = SequenceCardImageExporter(self)
+        self.page_exporter = SequenceCardPageExporter(self)
 
     def _create_and_init_components(self):
-        self.nav_sidebar = SequenceCardNavSidebar(self)
+        # nav_sidebar is already created in _create_basic_components()
 
         saved_length = self.settings_manager_obj.saved_length
         self.nav_sidebar.selected_length = saved_length
@@ -90,7 +104,8 @@ class SequenceCardTab(QWidget):
             )
         self.nav_sidebar.level_filter_changed.connect(self._on_level_filter_changed)
 
-        self.nav_sidebar.mode_change_requested.connect(self._on_mode_change_requested)
+        # Connect header mode toggle instead of sidebar
+        self.header.mode_change_requested.connect(self._on_mode_change_requested)
 
         # Mode manager is initialized here as it might depend on sidebar or other UI elements
         self.mode_manager = SequenceCardModeManager(self)
@@ -125,11 +140,7 @@ class SequenceCardTab(QWidget):
             self.page_factory = SequenceCardPageFactory(self)
             self.printable_displayer = None  # Ensure it's None if not used
 
-        # Other utilities
-        self.image_exporter = SequenceCardImageExporter(
-            self
-        )  # Could be used by generation controller
-        self.page_exporter = SequenceCardPageExporter(self)
+        # Other utilities (image_exporter and page_exporter already created in _create_basic_components)
         self.refresher = SequenceCardRefresher(
             self
         )  # May need review if its responsibilities overlap
@@ -192,8 +203,8 @@ class SequenceCardTab(QWidget):
 
             self._update_ui_for_mode(mode)  # Keep this for now, or move to controllers
 
-            if self.nav_sidebar.mode_toggle:
-                self.nav_sidebar.mode_toggle.set_current_mode(mode)
+            if self.header.mode_toggle:
+                self.header.mode_toggle.set_current_mode(mode)
         self._update_mode_toggle_availability()
 
     def _update_ui_for_mode(self, mode: SequenceCardMode):
@@ -209,18 +220,14 @@ class SequenceCardTab(QWidget):
         self._update_mode_toggle_availability()
 
     def _update_mode_toggle_availability(self):
-        if self.nav_sidebar.mode_toggle:
-            self.nav_sidebar.mode_toggle.set_mode_enabled(
-                SequenceCardMode.DICTIONARY, True
-            )
+        if self.header.mode_toggle:
+            self.header.mode_toggle.set_mode_enabled(SequenceCardMode.DICTIONARY, True)
             generation_available = self.generation_manager.is_available()
-            self.nav_sidebar.mode_toggle.set_mode_enabled(
+            self.header.mode_toggle.set_mode_enabled(
                 SequenceCardMode.GENERATION, generation_available
             )
             # Ensure the toggle reflects the actual current mode
-            self.nav_sidebar.mode_toggle.set_current_mode(
-                self.mode_manager.current_mode
-            )
+            self.header.mode_toggle.set_current_mode(self.mode_manager.current_mode)
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -318,6 +325,11 @@ class SequenceCardTab(QWidget):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
+
+        # Handle responsive sidebar sizing
+        if hasattr(self, "ui_manager"):
+            self.ui_manager.handle_resize_event()
+
         # Debounce or delay the sequence loading on resize
         if self.initialized and hasattr(self.nav_sidebar, "selected_length"):
             # Only reload if in dictionary mode and printable layout is active

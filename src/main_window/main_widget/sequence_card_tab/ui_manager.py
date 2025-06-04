@@ -41,16 +41,40 @@ class SequenceCardUIManager:
         self.tab.content_layout.setContentsMargins(0, 0, 0, 0)
         self.tab.content_layout.setSpacing(15)
 
-        sidebar_width = 200
-        self.tab.nav_sidebar.setFixedWidth(sidebar_width)
-        self.tab.nav_sidebar.setSizePolicy(
-            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding
-        )
+        self._update_sidebar_width()
 
         self.tab.content_layout.addWidget(self.tab.nav_sidebar, 0)
         self.tab.content_layout.addWidget(self.tab.content_area.scroll_area, 1)
 
         self.tab.layout.addLayout(self.tab.content_layout, 1)
+
+    def _update_sidebar_width(self) -> None:
+        """Dynamically calculate and set sidebar width based on tab dimensions."""
+        try:
+            tab_width = (
+                self.tab.width() if self.tab.width() > 100 else self.main_widget.width()
+            )
+
+            # Calculate sidebar as percentage of available width with bounds
+            sidebar_percentage = 0.22  # 22% of total width
+            calculated_width = int(tab_width * sidebar_percentage)
+
+            # Apply reasonable bounds: min 200px, max 400px
+            sidebar_width = max(200, min(calculated_width, 400))
+
+            self.tab.nav_sidebar.setMinimumWidth(sidebar_width)
+            self.tab.nav_sidebar.setMaximumWidth(sidebar_width)
+            self.tab.nav_sidebar.setSizePolicy(
+                QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding
+            )
+        except (AttributeError, ZeroDivisionError):
+            # Fallback to reasonable default
+            self.tab.nav_sidebar.setMinimumWidth(250)
+            self.tab.nav_sidebar.setMaximumWidth(250)
+
+    def handle_resize_event(self) -> None:
+        """Handle resize events to maintain responsive layout."""
+        self._update_sidebar_width()
 
     def update_column_count(self, column_count: int) -> None:
         """Updates the column count for the printable displayer."""

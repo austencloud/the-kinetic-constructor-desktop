@@ -4,6 +4,7 @@ from typing import Dict, List, Any, Optional, TYPE_CHECKING
 from PyQt6.QtWidgets import QApplication
 
 from utils.path_helpers import get_sequence_card_image_exporter_path
+from ....core.mode_manager import SequenceCardMode
 
 if TYPE_CHECKING:
     from ..sequence_loader import SequenceLoader
@@ -36,17 +37,46 @@ class SequenceProcessor:
         self,
         selected_length: Optional[int] = None,
         selected_levels: Optional[List[int]] = None,
+        mode: Optional[SequenceCardMode] = None,
     ) -> bool:
         try:
             images_path = get_sequence_card_image_exporter_path()
 
-            filtered_sequences = self.sequence_loader.get_filtered_sequences(
-                images_path,
-                length_filter=(
-                    selected_length if selected_length and selected_length > 0 else None
-                ),
-                level_filters=selected_levels if selected_levels else None,
-            )
+            # Load sequences based on the current mode for proper page isolation
+            if mode == SequenceCardMode.GENERATION:
+                # Generation mode: show only generated sequences
+                filtered_sequences = self.sequence_loader.get_generated_sequences_only(
+                    length_filter=(
+                        selected_length
+                        if selected_length and selected_length > 0
+                        else None
+                    ),
+                    level_filters=selected_levels if selected_levels else None,
+                )
+
+            elif mode == SequenceCardMode.DICTIONARY:
+                # Dictionary mode: show only dictionary sequences
+                filtered_sequences = self.sequence_loader.get_dictionary_sequences_only(
+                    images_path,
+                    length_filter=(
+                        selected_length
+                        if selected_length and selected_length > 0
+                        else None
+                    ),
+                    level_filters=selected_levels if selected_levels else None,
+                )
+
+            else:
+                # Fallback: show all sequences (mixed mode)
+                filtered_sequences = self.sequence_loader.get_filtered_sequences(
+                    images_path,
+                    length_filter=(
+                        selected_length
+                        if selected_length and selected_length > 0
+                        else None
+                    ),
+                    level_filters=selected_levels if selected_levels else None,
+                )
 
             total_sequences = len(filtered_sequences)
             if total_sequences == 0:

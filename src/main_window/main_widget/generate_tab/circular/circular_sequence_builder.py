@@ -173,20 +173,66 @@ class CircularSequenceBuilder(BaseSequenceBuilder):
         return self.update_beat_number(next_beat, self.sequence)
 
     def _get_filtered_options(self, prop_continuity, blue_rot_dir, red_rot_dir):
-        # Get construct tab through the new tab manager system
+        options = []
+        construct_tab = None
+
+        # Strategy 1: Try new tab manager system with on-demand creation
         try:
-            construct_tab = self.main_widget.tab_manager.get_tab_widget("construct")
-            if construct_tab:
-                options = deepcopy(
-                    construct_tab.option_picker.option_getter._load_all_next_option_dicts(
-                        self.sequence
+            if (
+                hasattr(self.main_widget, "tab_manager")
+                and self.main_widget.tab_manager
+            ):
+                # First try to get existing tab
+                construct_tab = self.main_widget.tab_manager.get_tab_widget("construct")
+
+                # If tab doesn't exist, create it on demand
+                if not construct_tab:
+                    import logging
+
+                    logger = logging.getLogger(__name__)
+                    logger.info(
+                        "Construct tab not found, creating it for sequence generation"
                     )
-                )
-            else:
-                # Fallback: try direct access for backward compatibility
-                if hasattr(self.main_widget, "construct_tab"):
+                    construct_tab = self.main_widget.tab_manager._create_tab(
+                        "construct"
+                    )
+                    if construct_tab:
+                        logger.info("Successfully created construct tab on demand")
+                    else:
+                        logger.error("Failed to create construct tab on demand")
+        except (AttributeError, TypeError) as e:
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Tab manager access failed: {e}")
+
+        # Strategy 2: Try direct access if tab manager failed
+        if not construct_tab:
+            try:
+                if (
+                    hasattr(self.main_widget, "construct_tab")
+                    and self.main_widget.construct_tab
+                ):
+                    construct_tab = self.main_widget.construct_tab
+            except (AttributeError, TypeError):
+                pass
+
+        # Get options if construct tab is available
+        if construct_tab:
+            try:
+                if (
+                    hasattr(construct_tab, "option_picker")
+                    and construct_tab.option_picker
+                    and hasattr(construct_tab.option_picker, "option_getter")
+                    and construct_tab.option_picker.option_getter
+                    and hasattr(
+                        construct_tab.option_picker.option_getter,
+                        "_load_all_next_option_dicts",
+                    )
+                ):
+
                     options = deepcopy(
-                        self.main_widget.construct_tab.option_picker.option_getter._load_all_next_option_dicts(
+                        construct_tab.option_picker.option_getter._load_all_next_option_dicts(
                             self.sequence
                         )
                     )
@@ -195,30 +241,48 @@ class CircularSequenceBuilder(BaseSequenceBuilder):
 
                     logger = logging.getLogger(__name__)
                     logger.warning(
-                        "construct_tab not available in CircularSequenceBuilder"
+                        "Construct tab found but option_picker chain is incomplete"
                     )
-                    options = []
-        except AttributeError:
-            # Fallback: try direct access for backward compatibility
-            if hasattr(self.main_widget, "construct_tab"):
-                options = deepcopy(
-                    self.main_widget.construct_tab.option_picker.option_getter._load_all_next_option_dicts(
-                        self.sequence
-                    )
-                )
-            else:
+            except Exception as e:
                 import logging
 
                 logger = logging.getLogger(__name__)
-                logger.warning("construct_tab not available in CircularSequenceBuilder")
-                options = []
+                logger.warning(f"Error accessing construct tab options: {e}")
+
+        # If we still don't have options, this is a critical error
+        if not options:
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.error(
+                "No construct tab available and failed to create it - sequence generation cannot continue"
+            )
+            raise RuntimeError(
+                "Cannot access construct tab for pictograph options. "
+                "This is required for sequence generation. "
+                "Please ensure the construct tab can be properly initialized."
+            )
+
+        # Apply filtering if we have options
         if prop_continuity == "continuous":
             options = self.filter_options_by_rotation(
                 options, blue_rot_dir, red_rot_dir
             )
+
         return options
 
     def _select_next_beat(self, options, is_last_in_word, CAP_type, slice_size):
+        if not options:
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.error(
+                "No options available for beat selection - sequence generation cannot continue"
+            )
+            raise RuntimeError(
+                "No pictograph options available for sequence generation. Ensure construct tab is properly initialized."
+            )
+
         if is_last_in_word:
             expected_end_pos = self._determine_expected_end_pos(CAP_type, slice_size)
             next_beat = PictographSelector.select_pictograph(options, expected_end_pos)

@@ -14,8 +14,10 @@ from PyQt6.QtGui import QPixmap
 
 
 from .generation.generation_controls import GenerationControlsPanel
-from .generation.approval_dialog.approval_dialog import SequenceApprovalDialog
 from .core.mode_manager import SequenceCardMode
+from .components.progressive_layout_manager import ProgressiveLayoutManager
+
+# Enhanced sequence cards temporarily disabled for stability
 from .ui_manager import SequenceCardUIManager  # Added for type hint
 from .generation.generation_manager import GenerationManager  # Added for type hint
 from .generation.generated_sequence_store import (
@@ -57,6 +59,12 @@ class SequenceCardGenerationModeController:
         self._pending_batch_sequences: List[Any] = []  # Use specific type if available
         self._expected_batch_size: int = 0
 
+        # Progressive layout manager for placeholder-based loading
+        self.progressive_layout_manager = ProgressiveLayoutManager(tab)
+        self._progressive_mode_active = False
+
+        # Enhanced sequence cards temporarily disabled for stability
+
     def activate(self) -> None:
         """Activates generation mode."""
         if not self.generation_manager.is_available():
@@ -82,7 +90,23 @@ class SequenceCardGenerationModeController:
             self.generation_controls.setVisible(True)
 
         self.ui_manager.clear_content_area()
-        self._display_generated_sequences()
+
+        # Reset page layout state for new session
+        if hasattr(self, "_current_page_layout_initialized"):
+            delattr(self, "_current_page_layout_initialized")
+
+        # Show existing approved sequences if any, otherwise show empty state
+        approved_sequences = self.generated_sequence_store.get_all_sequences()
+        approved_count = len(
+            [seq for seq in approved_sequences if getattr(seq, "approved", False)]
+        )
+
+        if approved_count > 0:
+            self._display_approved_sequences_as_pages()
+        else:
+            self.ui_manager.set_header_description(
+                "Generate sequences to see them laid out on pages for printing"
+            )
 
     def deactivate(self) -> None:
         """Deactivates generation mode."""
@@ -119,50 +143,162 @@ class SequenceCardGenerationModeController:
             f"Using generation controls parameters directly: {params.__dict__}"
         )
 
-        if batch_size == 1:
-            self.generation_manager.generate_single_sequence(params)
-        else:
+        # Initialize progressive layout for batch generation
+        if batch_size > 1:
             self._pending_batch_sequences = []
             self._expected_batch_size = batch_size
+
+            # Initialize placeholder-based progressive layout
+            if self.progressive_layout_manager.initialize_progressive_layout(
+                batch_size
+            ):
+                self._progressive_mode_active = True
+                self.ui_manager.set_header_description(
+                    f"Generating {batch_size} sequences - placeholders created, generation starting..."
+                )
+            else:
+                self._progressive_mode_active = False
+                self.ui_manager.set_header_description(
+                    f"Generating {batch_size} sequences - fallback to completion display"
+                )
+
             self.generation_manager.generate_batch(params, batch_size)
+        else:
+            # Single sequence generation - no progressive layout needed
+            self._progressive_mode_active = False
+            self.generation_manager.generate_single_sequence(params)
 
     def on_sequence_generated(
         self, sequence_data: Any
     ) -> None:  # Use specific type if available
-        # Ensure _pending_batch_sequences is initialized (it is in __init__)
+        """
+        Handle a newly generated sequence with placeholder-based progressive display.
+        Each sequence replaces a placeholder immediately upon generation.
+        """
+        # Immediately add the sequence to the approved store
+        self.generated_sequence_store.add_approved_sequence(sequence_data)
+
+        # Add to pending batch for tracking
         self._pending_batch_sequences.append(sequence_data)
+
+        # PROGRESSIVE PLACEHOLDER REPLACEMENT
+        if self._progressive_mode_active:
+            # Replace the next placeholder with this sequence
+            success = self.progressive_layout_manager.replace_placeholder_with_sequence(
+                sequence_data
+            )
+            if success:
+                progress_info = self.progressive_layout_manager.get_progress_info()
+                self.ui_manager.set_header_description(
+                    f"Generated {progress_info['completed']}/{progress_info['total_expected']} sequences - "
+                    f"{progress_info['placeholders_remaining']} placeholders remaining"
+                )
+            else:
+                logging.warning(
+                    "Failed to replace placeholder - falling back to completion display"
+                )
+                self._progressive_mode_active = False
+        else:
+            # Fallback to original behavior for single sequences or if progressive mode failed
+            total_generated = len(self._pending_batch_sequences)
+            if self._expected_batch_size > 0:
+                self.ui_manager.set_header_description(
+                    f"Generated {total_generated}/{self._expected_batch_size} sequences - "
+                    f"Will display at completion"
+                )
+            else:
+                self.ui_manager.set_header_description(
+                    f"Generated {total_generated} sequence - Will display at completion"
+                )
+
+        # Check if batch is complete
         if (
             len(self._pending_batch_sequences) >= self._expected_batch_size
             and self._expected_batch_size > 0
         ):
-            dialog = SequenceApprovalDialog(self._pending_batch_sequences, self.tab)
-            dialog.sequences_approved.connect(self.on_sequences_approved)
-            dialog.sequences_rejected.connect(self.on_sequences_rejected)
-            dialog.show()
-            self._pending_batch_sequences = []  # Reset after showing dialog
-            self._expected_batch_size = 0
-        elif (
-            self._expected_batch_size == 0
-        ):  # Single generation or batch of 1 already handled
-            dialog = SequenceApprovalDialog([sequence_data], self.tab)
-            dialog.sequences_approved.connect(self.on_sequences_approved)
-            dialog.sequences_rejected.connect(self.on_sequences_rejected)
-            dialog.show()
-            # Reset pending if it was a single sequence that somehow got here
-            self._pending_batch_sequences = []
+            self._on_batch_generation_complete()
+        elif self._expected_batch_size == 0:  # Single generation
+            self._on_single_generation_complete()
 
-    def on_sequences_approved(
-        self, approved_sequences: List[Any]
-    ) -> None:  # Use specific type
-        for sequence_data in approved_sequences:
-            self.generated_sequence_store.add_approved_sequence(sequence_data)
-        self._display_generated_sequences()
+    # PROGRESSIVE DISPLAY METHOD COMPLETELY REMOVED TO PREVENT DUPLICATION
+    # The progressive display approach was causing each sequence to be displayed multiple times
+    # because display_sequences() rebuilds the entire layout each time it's called.
+    # Now using single display at batch completion only.
 
-    def on_sequences_rejected(
-        self, rejected_sequences: List[Any]
-    ) -> None:  # Use specific type
-        # Rejected sequences are simply not added to the store
-        pass
+    # PROGRESSIVE LAYOUT INITIALIZATION METHOD ALSO REMOVED
+
+    def _on_batch_generation_complete(self) -> None:
+        """Handle completion of batch generation."""
+        total_count = len(self._pending_batch_sequences)
+
+        if self._progressive_mode_active:
+            # Progressive mode: all placeholders should already be replaced
+            self.ui_manager.set_header_description(
+                f"Generated {total_count} sequences - All placeholders replaced, ready for printing and curation"
+            )
+            # Reset progressive mode
+            self._progressive_mode_active = False
+        else:
+            # Fallback mode: display all sequences at once
+            self._display_all_generated_sequences_once()
+            self.ui_manager.set_header_description(
+                f"Generated {total_count} sequences - Ready for printing and curation"
+            )
+
+        self._pending_batch_sequences = []
+        self._expected_batch_size = 0
+
+    def _on_single_generation_complete(self) -> None:
+        """Handle completion of single sequence generation."""
+        # Single sequences always use completion display (no progressive mode)
+        self._display_all_generated_sequences_once()
+
+        self.ui_manager.set_header_description(
+            "Generated 1 sequence - Ready for printing"
+        )
+        self._pending_batch_sequences = []
+
+    def _display_all_generated_sequences_once(self) -> None:
+        """
+        Display all generated sequences exactly once using the printable displayer.
+        This method ensures no duplication by calling display_sequences() only once.
+        """
+        try:
+            # Force GENERATION mode to ensure only generated sequences are shown
+            from .core.mode_manager import SequenceCardMode
+
+            # Temporarily store the current mode
+            original_mode = None
+            if hasattr(self.tab, "mode_manager") and self.tab.mode_manager:
+                original_mode = self.tab.mode_manager.current_mode
+                # Force GENERATION mode to ensure only generated sequences are shown
+                self.tab.mode_manager.current_mode = SequenceCardMode.GENERATION
+
+            # Use the printable displayer to display all sequences ONCE
+            if (
+                self.tab.USE_PRINTABLE_LAYOUT
+                and hasattr(self.tab, "printable_displayer")
+                and self.tab.printable_displayer
+            ):
+                # Single call to display all sequences
+                self.tab.printable_displayer.display_sequences()
+                self.tab._sync_pages_from_displayer()
+            else:
+                # Fallback to card-based display if printable layout not available
+                self._display_generated_sequences()
+
+            # Restore original mode if it was changed
+            if (
+                original_mode
+                and hasattr(self.tab, "mode_manager")
+                and self.tab.mode_manager
+            ):
+                self.tab.mode_manager.current_mode = original_mode
+
+        except Exception as e:
+            logging.error(f"Error displaying all generated sequences: {e}")
+            # Fallback to simple display
+            self._display_generated_sequences()
 
     def on_generation_failed(self, error_message: str) -> None:
         self.ui_manager.set_header_description(f"Generation failed: {error_message}")
@@ -172,8 +308,26 @@ class SequenceCardGenerationModeController:
             self.generation_controls.show_progress(current, total)
 
     def on_clear_generated_requested(self) -> None:
+        """Clear all generated sequences and reset the page layout."""
         self.generated_sequence_store.clear_all_sequences()
-        self._display_generated_sequences()
+
+        # Reset progressive layout state
+        self.progressive_layout_manager.cleanup()
+        self._progressive_mode_active = False
+
+        # Reset legacy state variables
+        if hasattr(self, "_progressive_layout_initialized"):
+            delattr(self, "_progressive_layout_initialized")
+        if hasattr(self, "_current_page_layout_initialized"):
+            delattr(self, "_current_page_layout_initialized")
+        if hasattr(self, "_current_page_sequences"):
+            self._current_page_sequences = []
+
+        # Clear content area and show empty state
+        self.ui_manager.clear_content_area()
+        self.ui_manager.set_header_description(
+            "Generate sequences to see them laid out on pages for printing"
+        )
 
     def _display_generated_sequences(self) -> None:
         count = self.generated_sequence_store.get_sequence_count()
@@ -352,57 +506,148 @@ class SequenceCardGenerationModeController:
         self, sequence_data: Any
     ) -> QPixmap | None:  # Use specific type
         try:
-            main_widget: "MainWidget" = self.tab.main_widget
-            sequence_workbench: "SequenceWorkbench" = (
-                main_widget.widget_manager.get_widget("sequence_workbench")
-            )
-            if not sequence_workbench:
-                return None
-            image_export_manager: "ImageExportManager" = (
-                sequence_workbench.beat_frame.image_export_manager
-            )
-            if not image_export_manager:
+            # Use the isolated SequenceCardImageExporter instead of the actual beat frame
+            # This prevents contamination of the user's work in the construct/generate tabs
+            if not self.tab.image_exporter:
+                logging.error("No isolated image exporter available")
                 return None
 
+            # Load sequence into the isolated temp beat frame
+            self.tab.image_exporter.temp_beat_frame.load_sequence(
+                sequence_data.sequence_data
+            )
+
+            # Calculate optimal scale factor for consistent sizing across all display modes
+            scale_factor = self._calculate_optimal_scale_factor_for_completion_display()
+
+            # Page-optimized generation options (consistent with progressive loading)
             options = {
                 "add_beat_numbers": True,
-                "add_reversal_symbols": True,
+                "add_reversal_symbols": False,  # Skip for speed
                 "add_user_info": True,
                 "add_word": True,
                 "add_difficulty_level": True,
-                "include_start_position": True,  # Enable start position for approval dialog
+                "include_start_position": True,  # Enable start position for completion display
                 "combined_grids": False,
-                "additional_height_top": 0,
-                "additional_height_bottom": 0,
+                "additional_height_top": 0,  # Will be calculated by HeightDeterminer
+                "additional_height_bottom": 0,  # Will be calculated by HeightDeterminer
+                "dynamic_scale_factor": scale_factor,  # Apply reverse-calculated scale factor
             }
-            qimage = image_export_manager.image_creator.create_sequence_image(
+
+            logging.info(
+                f"🎨 Completion display using scale factor: {scale_factor:.3f}"
+            )
+
+            # Use the isolated export manager to create the image with scale factor
+            qimage = self.tab.image_exporter.export_manager.image_creator.create_sequence_image(
                 sequence_data.sequence_data,
                 options,
-                dictionary=True,
+                dictionary=False,  # Not for dictionary storage
                 fullscreen_preview=False,
+                override_word=sequence_data.word,
             )
             pixmap = QPixmap.fromImage(qimage)
+
+            logging.info(f"✅ Generated completion display image: {pixmap.size()}")
             return pixmap
         except Exception as e:
             logging.error(f"Error generating sequence card image: {e}")
             return None
 
+    def _calculate_optimal_scale_factor_for_completion_display(self) -> float:
+        """
+        Calculate the optimal scale factor for completion display using the same
+        reverse-calculation approach as the progressive loading system.
+
+        This ensures consistent sizing across all generation modes.
+
+        Returns:
+            float: Scale factor to apply to the image creator
+        """
+        try:
+            # Use the same target size as the progressive loading system
+            target_size = self.tab.page_factory.get_cell_size()
+
+            # Base pictograph size is hardcoded at 950x950 throughout the system
+            BASE_PICTOGRAPH_SIZE = 950
+
+            # Step 1: Get the actual layout that would be used for image generation
+            try:
+                # Use the same layout calculation as the image creator for accuracy
+                layout_handler = self.tab.image_exporter.export_manager.layout_handler
+                columns, rows = layout_handler.calculate_layout(
+                    16,  # Typical sequence length
+                    True,  # Include start position
+                )
+                logging.debug(f"Completion display layout: {columns}x{rows}")
+            except Exception as e:
+                # Fallback to safe estimates if layout calculation fails
+                logging.warning(f"Layout calculation failed, using fallback: {e}")
+                columns, rows = (
+                    5,
+                    4,
+                )  # Conservative estimate for 16-beat + start position
+
+            # Step 2: Calculate what the full-size image dimensions would be
+            core_image_width = columns * BASE_PICTOGRAPH_SIZE
+            core_image_height = rows * BASE_PICTOGRAPH_SIZE
+
+            # Estimate additional heights (using standard calculations)
+            estimated_additional_height_top = 300  # Standard for word label
+            estimated_additional_height_bottom = 150  # Standard for user info
+
+            full_image_width = core_image_width
+            full_image_height = (
+                core_image_height
+                + estimated_additional_height_top
+                + estimated_additional_height_bottom
+            )
+
+            # Step 3: Calculate scale ratio based on available page space
+            width_scale_ratio = target_size.width() / full_image_width
+            height_scale_ratio = target_size.height() / full_image_height
+
+            # Use the smaller ratio to ensure the image fits within the target size
+            scale_factor = min(width_scale_ratio, height_scale_ratio)
+
+            # Step 4: Apply safety bounds to prevent extreme scaling
+            scale_factor = max(scale_factor, 0.05)  # Minimum 5% to maintain readability
+            scale_factor = min(scale_factor, 1.0)  # Maximum 100% to prevent oversizing
+
+            logging.info(f"🎯 COMPLETION DISPLAY SCALE FACTOR: {scale_factor:.3f}")
+            logging.info(
+                f"   📐 Layout: {columns}x{rows}, Full size: {full_image_width}x{full_image_height}"
+            )
+            logging.info(
+                f"   📏 Target: {target_size}, Ratios: W={width_scale_ratio:.3f}, H={height_scale_ratio:.3f}"
+            )
+
+            return scale_factor
+
+        except Exception as e:
+            logging.error(f"Error calculating completion display scale factor: {e}")
+            # Fallback to a conservative default that should work in most cases
+            return 0.2  # 20% of original size
+
     def _export_generated_sequence(
         self, sequence_data: Any
     ) -> None:  # Use specific type
         try:
-            main_widget: "MainWidget" = self.tab.main_widget
-            sequence_workbench: "SequenceWorkbench" = (
-                main_widget.widget_manager.get_widget("sequence_workbench")
+            # Use the isolated SequenceCardImageExporter for export
+            # This prevents contamination of the user's work in the construct/generate tabs
+            if not self.tab.image_exporter:
+                logging.error("No isolated image exporter available for export")
+                return
+
+            # Load sequence into the isolated temp beat frame
+            self.tab.image_exporter.temp_beat_frame.load_sequence(
+                sequence_data.sequence_data
             )
-            if sequence_workbench:
-                image_export_manager: "ImageExportManager" = (
-                    sequence_workbench.beat_frame.image_export_manager
-                )
-                if image_export_manager:
-                    image_export_manager.export_image_directly(
-                        sequence_data.sequence_data
-                    )
+
+            # Export using the isolated export manager
+            self.tab.image_exporter.export_manager.export_image_directly(
+                sequence_data.sequence_data
+            )
         except Exception as e:
             logging.error(f"Error exporting generated sequence: {e}")
 
@@ -411,6 +656,137 @@ class SequenceCardGenerationModeController:
     ) -> None:  # Use specific type
         try:
             self.generated_sequence_store.remove_sequence(sequence_data.id)
-            self._display_generated_sequences()
+            self._refresh_page_display_after_deletion()
         except Exception as e:
             logging.error(f"Error removing generated sequence: {e}")
+
+    def _display_approved_sequences_as_pages(self) -> None:
+        """
+        Display approved sequences using the existing pagination system.
+        This replaces individual sequence cards with paginated page previews.
+        """
+        # Get approved sequences from the store
+        approved_sequences = self.generated_sequence_store.get_all_sequences()
+        approved_count = len(
+            [seq for seq in approved_sequences if getattr(seq, "approved", False)]
+        )
+
+        if approved_count == 0:
+            self.ui_manager.set_header_description(
+                "No approved sequences yet. Generate and approve some sequences!"
+            )
+            self.ui_manager.clear_content_area()
+            return
+
+        # Update header to show approved sequences
+        self.ui_manager.set_header_description(
+            f"Showing {approved_count} approved sequences as paginated previews ready for printing"
+        )
+
+        # Use the existing printable displayer to show approved sequences in paginated layout
+        if (
+            self.tab.USE_PRINTABLE_LAYOUT
+            and hasattr(self.tab, "printable_displayer")
+            and self.tab.printable_displayer
+        ):
+            # Use the printable displayer to show generated sequences
+            # The SequenceLoader will automatically include generated sequences
+            self.tab.printable_displayer.display_sequences()
+            self.tab._sync_pages_from_displayer()
+        else:
+            self.ui_manager.set_header_description(
+                "Printable layout not available for approved sequences"
+            )
+
+    def _initialize_page_layout(self) -> None:
+        """
+        Initialize the page layout system for direct sequence generation.
+        This sets up the printable displayer to show sequences as they're generated.
+        """
+        if (
+            self.tab.USE_PRINTABLE_LAYOUT
+            and hasattr(self.tab, "printable_displayer")
+            and self.tab.printable_displayer
+        ):
+            # Clear any existing content
+            self.ui_manager.clear_content_area()
+
+            # Initialize the page layout tracking
+            self._current_page_sequences = []
+            self._sequences_per_page = self._calculate_sequences_per_page()
+
+            # Enhanced sequence cards temporarily disabled for stability
+
+            # Update header to show we're ready for generation
+            self.ui_manager.set_header_description(
+                "Ready to generate sequences - they will appear as pages below"
+            )
+        else:
+            self.ui_manager.set_header_description(
+                "Page layout not available - using fallback display"
+            )
+
+    # Bulk operation handlers temporarily disabled for stability
+
+    def _refresh_page_display_after_deletion(self) -> None:
+        """Refresh the page display to show updated sequence layout after deletions."""
+        try:
+            # Use the existing printable displayer to refresh the layout
+            if (
+                self.tab.USE_PRINTABLE_LAYOUT
+                and hasattr(self.tab, "printable_displayer")
+                and self.tab.printable_displayer
+            ):
+                # Display sequences with current filters (this will reload from the store)
+                self.tab.printable_displayer.display_sequences()
+                self.tab._sync_pages_from_displayer()
+
+                # Enhanced sequence cards temporarily disabled for stability
+
+                logging.info("Page display refreshed after sequence deletion")
+            else:
+                self.ui_manager.set_header_description(
+                    "Could not refresh page display - printable layout not available"
+                )
+
+        except Exception as e:
+            logging.error(f"Error refreshing page display: {e}")
+            self.ui_manager.set_header_description(
+                f"Error refreshing display: {str(e)}"
+            )
+
+    # Progressive layout methods removed - now using single display at completion
+
+    def _refresh_page_display(self) -> None:
+        """
+        Refresh the page display with all currently approved sequences.
+        This uses the existing printable displayer system.
+        """
+        if (
+            self.tab.USE_PRINTABLE_LAYOUT
+            and hasattr(self.tab, "printable_displayer")
+            and self.tab.printable_displayer
+        ):
+            # Get all approved sequences from the store
+            approved_sequences = self.generated_sequence_store.get_all_sequences()
+            approved_count = len(
+                [seq for seq in approved_sequences if getattr(seq, "approved", False)]
+            )
+
+            if approved_count > 0:
+                # Use the printable displayer to show generated sequences
+                # The SequenceLoader in the display manager will automatically include
+                # generated sequences from the store
+                self.tab.printable_displayer.display_sequences()
+                self.tab._sync_pages_from_displayer()
+
+                # Update header with current count
+                self.ui_manager.set_header_description(
+                    f"Showing {approved_count} generated sequences in page layout"
+                )
+            else:
+                # Clear display if no sequences
+                self.ui_manager.clear_content_area()
+                self.ui_manager.set_header_description(
+                    "No generated sequences to display"
+                )

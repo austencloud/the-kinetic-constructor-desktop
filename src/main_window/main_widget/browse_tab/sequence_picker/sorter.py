@@ -175,7 +175,7 @@ class SequencePickerSorter:
         skip_image: bool = False,
     ):
         if word not in self.scroll_widget.thumbnail_boxes:
-            # Use modern integrated thumbnail box for enhanced display
+            # Use integrated thumbnail box for enhanced display
             thumbnail_box = ThumbnailBoxFactory.create_integrated_thumbnail_box(
                 self.browse_tab, word, thumbnails
             )

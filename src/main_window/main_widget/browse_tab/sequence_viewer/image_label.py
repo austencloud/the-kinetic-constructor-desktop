@@ -24,43 +24,60 @@ class SequenceViewerImageLabel(QLabel):
         self.set_pixmap_to_fit()
 
     def _calculate_available_space(self) -> tuple[int, int]:
+        """Calculate available space with proper width/height constraint logic."""
         sequence_viewer = self.sequence_viewer
-        available_height = int(sequence_viewer.main_widget.height() * 0.65)
-        available_width = int(sequence_viewer.main_widget.width() * 1 / 3 * 0.95)
+
+        # CRITICAL FIX: Implement proper width expansion with height limits
+        # Goal: Expand to fill entire width by default, but constrain height to prevent window expansion
+
+        # Get the actual sequence viewer dimensions
+        viewer_width = sequence_viewer.width()
+        viewer_height = sequence_viewer.height()
+
+        # Use most of the available width (95% to leave some margin)
+        available_width = int(viewer_width * 0.95)
+
+        # Set height constraint to prevent window expansion
+        # Use 65% of viewer height as maximum, but also set an absolute maximum
+        max_height_from_viewer = int(viewer_height * 0.65)
+        absolute_max_height = 600  # Prevent excessive height that would expand window
+        available_height = min(max_height_from_viewer, absolute_max_height)
+
+        # Ensure minimum dimensions for usability
+        available_width = max(300, available_width)
+        available_height = max(200, available_height)
 
         return available_width, available_height
 
     def set_pixmap_to_fit(self):
+        """Set pixmap with proper width expansion and height constraint logic."""
         if not self._original_pixmap:
             return
 
         available_width, available_height = self._calculate_available_space()
 
+        # CRITICAL FIX: Implement width-first sizing with height constraint
+        # Start with full available width
         target_width = available_width
         aspect_ratio = self._original_pixmap.height() / self._original_pixmap.width()
-
         target_height = int(target_width * aspect_ratio)
 
-        while target_height > available_height and target_width > 0:
-            target_width -= 1
-            target_height = int(target_width * aspect_ratio) - 1
-
-        target_width = max(1, target_width)
-        target_height = max(1, target_height)
-
-        if target_width == available_width - 1:
-            target_height = int(target_width * aspect_ratio)
-        elif target_height == available_height - 1:
+        # If height exceeds constraint, scale down to fit height limit
+        if target_height > available_height:
+            target_height = available_height
             target_width = int(target_height / aspect_ratio)
+
+        # Ensure minimum dimensions
+        target_width = max(100, target_width)
+        target_height = max(75, target_height)
 
         # ULTRA HIGH QUALITY SCALING: Use advanced multi-step scaling for sequence viewer
         scaled_pixmap = self._create_ultra_high_quality_scaled_pixmap(
             target_width, target_height
         )
-        self.setFixedHeight(target_height)
-        # CRITICAL FIX: Remove the problematic setFixedHeight call on non-existent stacked_widget
-        # This was causing layout regression by trying to set fixed height on undefined widget
-        # The image label's setFixedHeight is sufficient for proper scaling
+
+        # Set the image size properly
+        self.setFixedSize(target_width, target_height)
         self.setPixmap(scaled_pixmap)
 
     def update_thumbnail(self, index: int):
