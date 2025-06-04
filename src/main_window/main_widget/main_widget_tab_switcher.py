@@ -1,8 +1,5 @@
 from typing import TYPE_CHECKING
 from PyQt6.QtWidgets import QApplication
-from main_window.main_widget.browse_tab.sequence_picker.filter_stack.sequence_picker_filter_stack import (
-    BrowseTabSection,
-)
 from main_window.main_widget.tab_index import TAB_INDEX
 from main_window.main_widget.tab_indices import LeftStackIndex, RightStackIndex
 from main_window.main_widget.tab_name import TabName
@@ -10,6 +7,11 @@ from main_window.main_widget.tab_name import TabName
 if TYPE_CHECKING:
     from main_window.main_widget.main_widget import MainWidget
     from core.application_context import ApplicationContext
+
+
+class BrowseTabSection:
+    """Temporary replacement for the deleted BrowseTabSection enum."""
+    FILTER_SELECTOR = "filter_selector"
 
 
 class MainWidgetTabSwitcher:
@@ -35,6 +37,16 @@ class MainWidgetTabSwitcher:
         self.index_to_tab_name = {v: k for k, v in TAB_INDEX.items()}
 
     def on_tab_changed(self, new_tab: TabName):
+        """Handle tab changes with INSTANT visual feedback for browse tab."""
+        from PyQt6.QtCore import QTimer
+        from PyQt6.QtWidgets import QApplication
+
+        # CRITICAL: If switching to browse tab, do it INSTANTLY
+        if new_tab == TabName.BROWSE:
+            self._instant_browse_tab_switch()
+            return
+
+        # For other tabs, use the existing logic with immediate layout switching
         index = TAB_INDEX[new_tab]
         left_new_index, right_new_index = self.get_stack_indices_for_tab(new_tab)
         original_new_tab = new_tab
@@ -42,6 +54,89 @@ class MainWidgetTabSwitcher:
         current_tab_str = self._get_current_tab()
         self._set_current_tab(new_tab.value)
 
+        # CRITICAL: Immediate layout switching for non-browse tabs
+        self._switch_layout_immediately(new_tab, left_new_index, right_new_index)
+        QApplication.processEvents()
+
+    def _instant_browse_tab_switch(self):
+        """Instantly switch to browse tab with zero delay."""
+        from PyQt6.QtCore import QTimer
+        from PyQt6.QtWidgets import QApplication
+
+        try:
+            # INSTANT: Update tab state immediately
+            self._set_current_tab("browse")
+
+            # INSTANT: Get browse tab indices
+            left_new_index, right_new_index = self.get_stack_indices_for_tab(
+                TabName.BROWSE
+            )
+
+            # INSTANT: Switch layout without any animations or delays
+            self._disable_fades_temporarily()
+            self._switch_layout_immediately(
+                TabName.BROWSE, left_new_index, right_new_index
+            )
+
+            # INSTANT: Force immediate visual update
+            QApplication.processEvents()
+
+            # INSTANT: Ensure browse tab is visible and responsive
+            browse_tab = self._get_browse_tab()
+            if browse_tab:
+                browse_tab.setEnabled(True)
+                browse_tab.show()
+                browse_tab.update()
+
+            # INSTANT: Process events again for immediate responsiveness
+            QApplication.processEvents()
+
+            # BACKGROUND: Schedule content loading after visual switch
+            QTimer.singleShot(1, self._load_browse_content_background)
+
+            print("✅ Browse tab switched INSTANTLY")
+
+        except Exception as e:
+            print(f"❌ Error in instant browse switch: {e}")
+            # Fallback to regular switching if instant fails
+            self._switch_layout_immediately(
+                TabName.BROWSE,
+                LeftStackIndex.SEQUENCE_PICKER,
+                RightStackIndex.SEQUENCE_CARD_TAB,
+            )
+
+    def _disable_fades_temporarily(self):
+        """Temporarily disable fade animations for instant switching."""
+        try:
+            fade_manager = getattr(self.mw, "fade_manager", None)
+            if fade_manager and hasattr(fade_manager, "set_fades_enabled"):
+                fade_manager.set_fades_enabled(False)
+                # Re-enable after a short delay
+                from PyQt6.QtCore import QTimer
+
+                QTimer.singleShot(100, lambda: fade_manager.set_fades_enabled(True))
+        except Exception as e:
+            print(f"Error disabling fades: {e}")
+
+    def _load_browse_content_background(self):
+        """Load browse tab content in background after instant switch."""
+        try:
+            browse_tab = self._get_browse_tab()
+            if browse_tab:
+                # Initialize async content loading
+                if hasattr(browse_tab, "initialize_content_async"):
+                    browse_tab.initialize_content_async()
+                else:
+                    # Fallback to lightweight activation
+                    self._simple_browse_tab_activation()
+
+        except Exception as e:
+            print(f"Error loading browse content in background: {e}")
+
+    def _switch_layout_immediately(
+        self, new_tab: TabName, left_new_index, right_new_index
+    ):
+        """Switch the layout immediately without heavy processing."""
         if new_tab == TabName.BROWSE:
             width_ratio = (2, 1)
         elif new_tab == TabName.SEQUENCE_CARD:
@@ -58,6 +153,7 @@ class MainWidgetTabSwitcher:
             else right_new_index
         )
 
+        # Immediate layout changes
         self.mw.left_stack.setCurrentIndex(left_idx)
         self.mw.right_stack.setCurrentIndex(right_idx)
 
@@ -65,13 +161,196 @@ class MainWidgetTabSwitcher:
             self.mw.content_layout.setStretch(0, 1)
             self.mw.content_layout.setStretch(1, 0)
             self.mw.right_stack.hide()
-
-            # FILTER RESPONSIVENESS FIX: Simple browse tab activation
-            self._simple_browse_tab_activation()
         else:
             self.mw.content_layout.setStretch(0, 1)
             self.mw.content_layout.setStretch(1, 1)
             self.mw.right_stack.show()
+
+    def _show_browse_loading_indicator(self):
+        """Show immediate loading feedback for browse tab."""
+        try:
+            browse_tab = self._get_browse_tab()
+            if browse_tab and hasattr(browse_tab, "show_loading_state"):
+                browse_tab.show_loading_state("Loading browse tab...")
+            else:
+                # Fallback: show in status or create simple indicator
+                self._show_simple_loading_indicator()
+        except Exception as e:
+            print(f"Failed to show loading indicator: {e}")
+
+    def _show_simple_loading_indicator(self):
+        """Show a simple loading indicator as fallback."""
+        try:
+            # Create a simple loading overlay or status message
+            from PyQt6.QtWidgets import QLabel
+            from PyQt6.QtCore import Qt
+
+            browse_tab = self._get_browse_tab()
+            if browse_tab:
+                # Create temporary loading label
+                if not hasattr(browse_tab, "_loading_label"):
+                    browse_tab._loading_label = QLabel(
+                        "Loading browse tab...", browse_tab
+                    )
+                    browse_tab._loading_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                    browse_tab._loading_label.setStyleSheet(
+                        """
+                        QLabel {
+                            background-color: rgba(0, 0, 0, 0.7);
+                            color: white;
+                            font-size: 16px;
+                            padding: 20px;
+                            border-radius: 10px;
+                        }
+                    """
+                    )
+                    browse_tab._loading_label.resize(200, 60)
+
+                # Position in center
+                browse_tab._loading_label.move(
+                    browse_tab.width() // 2 - 100, browse_tab.height() // 2 - 30
+                )
+                browse_tab._loading_label.show()
+                browse_tab._loading_label.raise_()
+        except Exception as e:
+            print(f"Failed to show simple loading indicator: {e}")
+
+    def _activate_browse_tab_async(self):
+        """Activate browse tab asynchronously to prevent UI blocking."""
+        from PyQt6.QtCore import QTimer
+        from PyQt6.QtWidgets import QApplication
+
+        try:
+            # Hide loading indicator
+            self._hide_browse_loading_indicator()
+
+            # Perform lightweight activation
+            self._simple_browse_tab_activation()
+
+            # Process events to keep UI responsive
+            QApplication.processEvents()
+
+            # Schedule heavy operations for later
+            QTimer.singleShot(100, self._perform_heavy_browse_operations)
+
+        except Exception as e:
+            print(f"Error in async browse tab activation: {e}")
+            self._hide_browse_loading_indicator()
+
+    def _hide_browse_loading_indicator(self):
+        """Hide the loading indicator."""
+        try:
+            browse_tab = self._get_browse_tab()
+            if browse_tab:
+                if hasattr(browse_tab, "hide_loading_state"):
+                    browse_tab.hide_loading_state()
+                elif hasattr(browse_tab, "_loading_label"):
+                    browse_tab._loading_label.hide()
+        except Exception as e:
+            print(f"Failed to hide loading indicator: {e}")
+
+    def _perform_heavy_browse_operations(self):
+        """Perform heavy browse tab operations in background."""
+        from PyQt6.QtCore import QTimer
+        from PyQt6.QtWidgets import QApplication
+
+        try:
+            browse_tab = self._get_browse_tab()
+            if not browse_tab:
+                return
+
+            # Chunk heavy operations to prevent blocking
+            operations = [
+                self._ensure_thumbnails_loaded_chunk,
+                self._update_browse_filters_chunk,
+                self._finalize_browse_activation_chunk,
+            ]
+
+            self._current_operation_index = 0
+            self._operations_queue = operations
+
+            # Start processing operations with delays
+            self._process_next_operation()
+
+        except Exception as e:
+            print(f"Error in heavy browse operations: {e}")
+
+    def _process_next_operation(self):
+        """Process the next operation in the queue."""
+        from PyQt6.QtCore import QTimer
+        from PyQt6.QtWidgets import QApplication
+
+        if self._current_operation_index >= len(self._operations_queue):
+            return  # All operations completed
+
+        try:
+            # Execute current operation
+            operation = self._operations_queue[self._current_operation_index]
+            operation()
+
+            # Process events to keep UI responsive
+            QApplication.processEvents()
+
+            # Move to next operation
+            self._current_operation_index += 1
+
+            # Schedule next operation with small delay
+            QTimer.singleShot(50, self._process_next_operation)
+
+        except Exception as e:
+            print(f"Error in operation {self._current_operation_index}: {e}")
+            # Continue with next operation even if current fails
+            self._current_operation_index += 1
+            QTimer.singleShot(50, self._process_next_operation)
+
+    def _ensure_thumbnails_loaded_chunk(self):
+        """Load thumbnails in small chunks to prevent blocking."""
+        try:
+            browse_tab = self._get_browse_tab()
+            if browse_tab and hasattr(
+                browse_tab, "_ensure_visible_thumbnails_loaded_async"
+            ):
+                browse_tab._ensure_visible_thumbnails_loaded_async()
+        except Exception as e:
+            print(f"Error loading thumbnails chunk: {e}")
+
+    def _update_browse_filters_chunk(self):
+        """Update browse filters without blocking."""
+        try:
+            browse_tab = self._get_browse_tab()
+            if browse_tab and hasattr(browse_tab, "sequence_picker"):
+                # Light filter update
+                if hasattr(browse_tab.sequence_picker, "update_filters_lightweight"):
+                    browse_tab.sequence_picker.update_filters_lightweight()
+        except Exception as e:
+            print(f"Error updating filters chunk: {e}")
+
+    def _finalize_browse_activation_chunk(self):
+        """Finalize browse tab activation."""
+        try:
+            browse_tab = self._get_browse_tab()
+            if browse_tab and hasattr(browse_tab, "finalize_activation"):
+                browse_tab.finalize_activation()
+        except Exception as e:
+            print(f"Error finalizing activation: {e}")
+
+    def _get_browse_tab(self):
+        """Get the browse tab instance."""
+        try:
+            if hasattr(self.mw, "browse_tab"):
+                return self.mw.browse_tab
+            elif hasattr(self.mw, "left_stack"):
+                # Try to find browse tab in the stack
+                for i in range(self.mw.left_stack.count()):
+                    widget = self.mw.left_stack.widget(i)
+                    if hasattr(
+                        widget, "sequence_picker"
+                    ):  # Browse tab has sequence_picker
+                        return widget
+            return None
+        except Exception as e:
+            print(f"Error getting browse tab: {e}")
+            return None
 
     def debug_layout_state(self, main_widget, context=""):
         try:

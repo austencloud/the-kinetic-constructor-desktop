@@ -433,3 +433,64 @@ class PageImageDataExtractor:
                     return os.path.join(word_dir, file)
 
         return None
+
+    def count_total_sequence_images(self, pages: List[QWidget]) -> int:
+        """
+        Count the total number of sequence images across all pages for progress tracking.
+
+        This method provides accurate counts for fine-grained progress updates during export.
+
+        Args:
+            pages: List of page widgets to count images from
+
+        Returns:
+            int: Total number of sequence images across all pages
+        """
+        total_images = 0
+
+        try:
+            self.logger.info(f"Counting sequence images across {len(pages)} pages")
+
+            for page_index, page in enumerate(pages):
+                try:
+                    # Extract sequence data from this page
+                    sequence_items = self.extract_sequence_data_from_page(page)
+
+                    # Count valid sequence items (those with image paths)
+                    page_image_count = 0
+                    for item in sequence_items:
+                        if isinstance(item, dict) and "sequence_data" in item:
+                            sequence_data = item["sequence_data"]
+                            if isinstance(sequence_data, dict) and sequence_data.get(
+                                "path"
+                            ):
+                                # Verify the image file exists
+                                image_path = sequence_data["path"]
+                                if os.path.exists(image_path):
+                                    page_image_count += 1
+                                else:
+                                    self.logger.warning(
+                                        f"Image file not found: {image_path}"
+                                    )
+
+                    total_images += page_image_count
+                    self.logger.debug(
+                        f"Page {page_index + 1}: {page_image_count} images"
+                    )
+
+                except Exception as e:
+                    self.logger.error(
+                        f"Error counting images on page {page_index + 1}: {e}"
+                    )
+                    # Continue counting other pages even if one fails
+                    continue
+
+            self.logger.info(f"Total sequence images counted: {total_images}")
+            return total_images
+
+        except Exception as e:
+            self.logger.error(f"Error counting total sequence images: {e}")
+            # Return a reasonable fallback based on page count
+            fallback_count = len(pages) * 12  # Assume ~12 images per page as fallback
+            self.logger.warning(f"Using fallback count: {fallback_count}")
+            return fallback_count

@@ -107,7 +107,6 @@ class BeatDrawer:
     ) -> QPixmap:
         """Create a start position pixmap from sequence data instead of beat frame view."""
         try:
-            # Create a temporary beat frame for rendering the start position
             from main_window.main_widget.browse_tab.temp_beat_frame.temp_beat_frame import (
                 TempBeatFrame,
             )
@@ -115,21 +114,17 @@ class BeatDrawer:
                 StartPositionBeat,
             )
 
-            # Create a mock browse tab for TempBeatFrame compatibility
-            class MockBrowseTab:
+            class MockParent:
                 def __init__(self, main_widget):
                     self.main_widget = main_widget
 
-            # Get the actual main widget
             actual_main_widget = self.image_creator.export_manager.main_widget
-            mock_browse_tab = MockBrowseTab(actual_main_widget)
-            temp_beat_frame = TempBeatFrame(mock_browse_tab)
+            mock_parent = MockParent(actual_main_widget)
+            temp_beat_frame = TempBeatFrame(mock_parent)
 
-            # Create start position beat from data
             start_pos_beat = StartPositionBeat(temp_beat_frame)
             start_pos_beat.managers.updater.update_pictograph(start_pos_data)
 
-            # Create a temporary view for the start position
             from main_window.main_widget.sequence_workbench.sequence_beat_frame.start_pos_beat_view import (
                 StartPositionBeatView,
             )
@@ -137,11 +132,9 @@ class BeatDrawer:
             start_pos_view = StartPositionBeatView(temp_beat_frame)
             start_pos_view.set_start_pos(start_pos_beat)
 
-            # Grab the pixmap from the temporary view
             return self._grab_pixmap(start_pos_view, width, height, use_combined_grids)
 
         except Exception as e:
-            # Fallback to original method if start position creation fails
             import logging
 
             logging.warning(f"Failed to create start position from data: {e}")

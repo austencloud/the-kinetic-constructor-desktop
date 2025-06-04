@@ -353,14 +353,15 @@ class ComponentInitializationManager:
                 )
                 return
 
-            # Check if construct tab is available (needed for start position picker)
+            # STARTUP OPTIMIZATION: Skip construct tab dependency check during startup
+            # The construct tab will be created on-demand when needed
             construct_tab = self.tab_manager.get_tab_widget("construct")
             if not construct_tab or not hasattr(construct_tab, "start_pos_picker"):
-                self.logger.warning(
-                    "Construct tab or start position picker not available, deferring sequence loading"
+                self.logger.info(
+                    "Construct tab not available during startup - skipping sequence loading (will load on-demand)"
                 )
-                # Defer the sequence loading until the construct tab is ready
-                QTimer.singleShot(1000, self._load_saved_sequence)
+                # CRITICAL FIX: Don't defer with QTimer - this causes infinite startup loop
+                # The sequence will be loaded when the construct tab is actually accessed
                 return
 
             # Load the current sequence from JSON

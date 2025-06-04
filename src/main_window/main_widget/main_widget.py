@@ -187,3 +187,56 @@ class MainWidget(QWidget):
 
             self.menu_bar.navigation_widget.current_index = tab_index
             self.menu_bar.navigation_widget.update_buttons()
+
+    def switch_to_tab(self, tab_name: str) -> bool:
+        """
+        Switch to a specific tab using the new TabManager system.
+
+        This method bridges the MainWidget to the new TabManager architecture.
+        """
+        print(f"DEBUG: MainWidget.switch_to_tab called for: {tab_name}")
+
+        # Try to access the TabManager through the new architecture
+        try:
+            # Check if we have access to a coordinator with TabManager
+            if hasattr(self, "coordinator") and hasattr(
+                self.coordinator, "tab_manager"
+            ):
+                print(f"DEBUG: Using coordinator.tab_manager to switch to {tab_name}")
+                return self.coordinator.tab_manager.switch_to_tab(tab_name)
+
+            # Try to find TabManager through the app context
+            if hasattr(self, "app_context"):
+                from main_window.main_widget.core.main_widget_coordinator import (
+                    MainWidgetCoordinator,
+                )
+
+                # Look for an existing coordinator
+                for widget in self.findChildren(MainWidgetCoordinator):
+                    if hasattr(widget, "tab_manager"):
+                        print(
+                            f"DEBUG: Found TabManager through coordinator search, switching to {tab_name}"
+                        )
+                        return widget.tab_manager.switch_to_tab(tab_name)
+
+            # Fallback: use the old tab switcher system as a bridge
+            print(f"DEBUG: Falling back to old tab switcher for {tab_name}")
+            if hasattr(self, "tab_switcher"):
+                # Convert string tab name to TabName enum
+                tab_enum = getattr(TabName, tab_name.upper(), None)
+                if tab_enum:
+                    self.tab_switcher.on_tab_changed(tab_enum)
+                    return True
+                else:
+                    print(f"DEBUG: ERROR - Invalid tab name: {tab_name}")
+                    return False
+
+            print(f"DEBUG: ERROR - No tab switching method available")
+            return False
+
+        except Exception as e:
+            print(f"DEBUG: ERROR in switch_to_tab: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return False

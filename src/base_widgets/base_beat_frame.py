@@ -20,9 +20,11 @@ if TYPE_CHECKING:
         SequenceWorkbench,
     )
     from main_window.main_widget.main_widget import MainWidget
-    from main_window.main_widget.browse_tab.browse_tab import (
-        BrowseTab,
-    )
+
+    # Note: BrowseTab import removed due to browse_tab restructure
+    from typing import Any
+
+    BrowseTab = Any
 
 
 class BaseBeatFrame(QFrame):

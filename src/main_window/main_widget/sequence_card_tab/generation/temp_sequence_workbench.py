@@ -1,60 +1,63 @@
-from typing import TYPE_CHECKING
+"""
+Temporary Sequence Workbench for isolated generation operations.
+
+Provides a minimal workbench interface for sequence generation without
+affecting the main sequence workbench state.
+"""
+
 import logging
+from typing import TYPE_CHECKING, Optional
+from PyQt6.QtWidgets import QWidget
 
 if TYPE_CHECKING:
-    from main_window.main_widget.browse_tab.temp_beat_frame.temp_beat_frame import (
-        TempBeatFrame,
+    from main_window.main_widget.sequence_workbench.sequence_beat_frame.sequence_beat_frame import (
+        SequenceBeatFrame,
     )
 
-from .temp_populator import TempPopulator
-from .temp_beat_factory import TempBeatFactory
+logger = logging.getLogger(__name__)
 
 
-class MockCurrentWordLabel:
-    """Mock current word label for temporary sequence workbench compatibility."""
+class TempSequenceWorkbench(QWidget):
+    """
+    Temporary sequence workbench for isolated generation operations.
 
-    def __init__(self):
-        self.current_word = ""
-        self.simplified_word = ""
+    This provides a minimal interface compatible with the main sequence workbench
+    but operates in isolation for generation purposes.
+    """
 
-    def update_current_word_label(self):
-        """Mock method that does nothing - prevents AttributeError during generation."""
+    def __init__(self, beat_frame: "SequenceBeatFrame"):
+        super().__init__()
+        self.beat_frame = beat_frame
+        self.main_widget = getattr(beat_frame, "main_widget", None)
+
+        # Initialize minimal components needed for generation
+        self._setup_minimal_interface()
+
+        logger.info("TempSequenceWorkbench created for isolated generation")
+
+    def _setup_minimal_interface(self):
+        """Setup minimal interface components needed for generation."""
+        # This workbench is primarily used as a container for the beat_frame
+        # during isolated generation operations
         pass
 
-    def set_current_word(self, word: str):
-        """Mock method to set current word."""
-        self.current_word = word
-        self.simplified_word = word
+    def get_current_sequence_length(self) -> int:
+        """Get the current sequence length from the beat frame."""
+        try:
+            if hasattr(self.beat_frame, "json_manager"):
+                sequence = (
+                    self.beat_frame.json_manager.loader_saver.load_current_sequence()
+                )
+                return len([item for item in sequence if item.get("beat", 0) > 0])
+            return 0
+        except Exception as e:
+            logger.warning(f"Could not get sequence length: {e}")
+            return 0
 
+    def get_beat_frame(self) -> "SequenceBeatFrame":
+        """Get the associated beat frame."""
+        return self.beat_frame
 
-class TempSequenceWorkbench:
-    def __init__(self, temp_beat_frame: "TempBeatFrame"):
-        self.beat_frame = temp_beat_frame
-        self.temp_beat_frame = temp_beat_frame
-        self.current_word_label = MockCurrentWordLabel()
-        self._add_missing_beat_frame_attributes()
-
-    def _add_missing_beat_frame_attributes(self):
-        if not hasattr(self.beat_frame, "populator"):
-            self.beat_frame.populator = TempPopulator(self.beat_frame)
-
-        if not hasattr(self.beat_frame, "beat_factory"):
-            self.beat_frame.beat_factory = TempBeatFactory(self.beat_frame)
-            logging.info(
-                "Added TempBeatFactory to beat_frame for circular generation compatibility"
-            )
-
-        if not hasattr(self.beat_frame, "emit_update_image_export_preview"):
-
-            def emit_update_image_export_preview():
-                pass
-
-            self.beat_frame.emit_update_image_export_preview = (
-                emit_update_image_export_preview
-            )
-
-    def emit_update_image_export_preview(self):
-        pass
-
-    def __getattr__(self, name):
-        return getattr(self.temp_beat_frame, name)
+    def cleanup(self):
+        """Cleanup resources when done with isolated generation."""
+        logger.info("TempSequenceWorkbench cleaned up")

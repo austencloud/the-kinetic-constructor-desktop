@@ -1,6 +1,7 @@
 import logging
 from typing import TYPE_CHECKING, Optional
 
+
 from main_window.main_widget.browse_tab.temp_beat_frame.temp_beat_frame import (
     TempBeatFrame,
 )

@@ -1,16 +1,17 @@
 {
   "version": "0.2.0",
   "configurations": [
-      {
-          "name": "Python: Main",
-          "type": "debugpy",
-          "request": "launch",
-          "program": "${workspaceFolder}/src/main.py",
-          "console": "integratedTerminal",
-          "justMyCode": true,
-          "env": {
-              "PYTHONPATH": "${workspaceFolder}/src"
-          }
+    {
+      "name": "Debug Main Application",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/main.py",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
       }
+    }
   ]
 }

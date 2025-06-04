@@ -54,7 +54,8 @@ class ExportConfig:
             "color_management": {
                 "preserve_color_profile": True,
                 "gamma_correction": 1.0,  # 1.0 = no correction, <1.0 = lighter, >1.0 = darker
-                "enhance_red_channel": 1.15,  # Slight boost to red channel to compensate for printing
+                # REMOVED: Red enhancement causing gray-to-red color bleeding
+                # "enhance_red_channel": 1.15,  # Slight boost to red channel to compensate for printing
                 "color_correction": {
                     # Specific color corrections for known colors
                     "#ED1C24": "#FF1C24",  # Brighten the standard red color for better print fidelity
@@ -67,6 +68,9 @@ class ExportConfig:
                 "maintain_larger_dimensions": True,  # Keep images larger during processing
                 "upscale_factor": 1.2,  # Upscale images by 20% before final scaling to preserve detail
                 "sharpen_after_scaling": True,  # Apply slight sharpening after scaling
+                # Two-stage processing for optimal quality vs color vibrancy balance
+                "color_processing_size": 1000,  # High resolution for crisp text and quality color processing
+                "printer_output_size": 800,  # Balanced size for good sharpness while maintaining printer compatibility
             },
         }
 

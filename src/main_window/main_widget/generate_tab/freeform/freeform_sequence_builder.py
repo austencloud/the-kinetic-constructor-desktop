@@ -284,21 +284,47 @@ class FreeFormSequenceBuilder(BaseSequenceBuilder):
 
     def _get_construct_tab(self):
         """Get the construct tab using the new MVVM architecture with graceful fallbacks."""
+        construct_tab = None
+
+        # Strategy 1: Try new tab manager system with on-demand creation
         try:
-            # Try to get construct tab through the new coordinator pattern
-            return self.main_widget.tab_manager.get_tab_widget("construct")
-        except AttributeError:
-            # Fallback: try through tab_manager for backward compatibility
+            if (
+                hasattr(self.main_widget, "tab_manager")
+                and self.main_widget.tab_manager
+            ):
+                # First try to get existing tab
+                construct_tab = self.main_widget.tab_manager.get_tab_widget("construct")
+
+                # If tab doesn't exist, create it on demand
+                if not construct_tab:
+                    import logging
+
+                    logger = logging.getLogger(__name__)
+                    logger.info(
+                        "Construct tab not found, creating it for sequence generation"
+                    )
+                    construct_tab = self.main_widget.tab_manager._create_tab(
+                        "construct"
+                    )
+                    if construct_tab:
+                        logger.info("Successfully created construct tab on demand")
+                    else:
+                        logger.error("Failed to create construct tab on demand")
+        except (AttributeError, TypeError) as e:
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Tab manager access failed: {e}")
+
+        # Strategy 2: Try direct access if tab manager failed
+        if not construct_tab:
             try:
-                return self.main_widget.tab_manager.get_tab_widget("construct")
-            except AttributeError:
-                # Final fallback: try direct access for legacy compatibility
-                try:
-                    if hasattr(self.main_widget, "construct_tab"):
-                        return self.main_widget.construct_tab
-                except AttributeError:
-                    pass
-        return None
+                if hasattr(self.main_widget, "construct_tab"):
+                    construct_tab = self.main_widget.construct_tab
+            except (AttributeError, TypeError):
+                pass
+
+        return construct_tab
 
     def _update_construct_tab_options(self):
         """Update construct tab options using the new MVVM architecture with graceful fallbacks."""

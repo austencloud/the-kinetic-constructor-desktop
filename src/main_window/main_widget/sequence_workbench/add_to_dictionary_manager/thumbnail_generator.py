@@ -26,14 +26,38 @@ class ThumbnailGenerator:
         dictionary=False,
         fullscreen_preview=False,
     ):
-        """Generate and save thumbnail for a sequence variation."""
+        """Generate and save thumbnail for a sequence variation with professional overlay information."""
         try:
-            beat_frame_image = self.image_creator.create_sequence_image(
-                sequence,
-                options=self.image_creator.export_manager.settings_manager.image_export.get_all_image_export_options(),
-                dictionary=dictionary,
-                fullscreen_preview=fullscreen_preview,
-            )
+            # REDESIGN: Use sequence card rendering options for dictionary images
+            # This ensures dictionary images have word, difficulty, author, and date overlays
+            if dictionary:
+                # Use professional sequence card rendering options
+                options = {
+                    "add_beat_numbers": True,
+                    "add_reversal_symbols": True,
+                    "add_user_info": True,  # Enable author and date info
+                    "add_word": True,  # Enable word overlay
+                    "add_difficulty_level": True,  # Enable difficulty indicator
+                    "include_start_position": True,
+                    "combined_grids": False,
+                    "additional_height_top": 0,
+                    "additional_height_bottom": 0,
+                }
+                # Override dictionary parameter to False to enable overlays
+                beat_frame_image = self.image_creator.create_sequence_image(
+                    sequence,
+                    options=options,
+                    dictionary=False,  # Changed: Enable overlays for professional cards
+                    fullscreen_preview=fullscreen_preview,
+                )
+            else:
+                # Use standard options for non-dictionary images
+                beat_frame_image = self.image_creator.create_sequence_image(
+                    sequence,
+                    options=self.image_creator.export_manager.settings_manager.image_export.get_all_image_export_options(),
+                    dictionary=dictionary,
+                    fullscreen_preview=fullscreen_preview,
+                )
         except Exception as e:
             print(f"Warning: Failed to create sequence image: {e}")
             beat_frame_image = None
@@ -111,7 +135,18 @@ class ThumbnailGenerator:
         return info
 
     def _create_image_filename(self, structural_variation_number):
-        base_word = self.beat_frame.get.current_word()
+        # Handle both real BeatFrameGetter and mock interface
+        if hasattr(self.beat_frame, "get"):
+            # Check if get is a method (TempBeatFrame) or attribute (SequenceBeatFrame)
+            if callable(self.beat_frame.get):
+                # TempBeatFrame case: get() returns MockGetInterface
+                base_word = self.beat_frame.get().current_word()
+            else:
+                # SequenceBeatFrame case: get is BeatFrameGetter instance
+                base_word = self.beat_frame.get.current_word()
+        else:
+            # Fallback
+            base_word = "UNKNOWN"
         return f"{base_word}_ver{structural_variation_number}.png"
 
     def _save_image(

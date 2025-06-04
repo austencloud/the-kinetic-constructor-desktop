@@ -31,7 +31,9 @@ class SplashScreen(QWidget):
         screens = app.screens()
         dev_environment = not getattr(sys, "frozen", False)
 
-        target_screen = screens[1] if dev_environment and len(screens) > 1 else screens[0]
+        target_screen = (
+            screens[1] if dev_environment and len(screens) > 1 else screens[0]
+        )
         self.target_screen = target_screen
         self.settings_manager = settings_manager
 
@@ -54,4 +56,3 @@ class SplashScreen(QWidget):
         painter = QPainter(self)
         if self.background_handler.background_manager:
             self.background_handler.background_manager.paint_background(self, painter)
-        painter.end()

@@ -162,19 +162,24 @@ class SynchronousImageGenerator(QObject):
                 else None
             )
 
-            # Create image using the correct method name with override values
-            # Use explicit options to ensure start positions are included in approval dialog
+            # Calculate optimal scale factor for approval dialog images
+            scale_factor = self._calculate_optimal_scale_factor_for_approval_dialog()
+
+            # Create image using page-optimized options with scale factor
             options = {
                 "add_beat_numbers": True,
-                "add_reversal_symbols": True,
+                "add_reversal_symbols": False,  # Skip for speed in approval dialog
                 "add_user_info": True,
                 "add_word": True,
                 "add_difficulty_level": True,
                 "include_start_position": True,  # Enable start position for approval dialog
                 "combined_grids": False,
-                "additional_height_top": 0,
-                "additional_height_bottom": 0,
+                "additional_height_top": 0,  # Will be calculated by HeightDeterminer
+                "additional_height_bottom": 0,  # Will be calculated by HeightDeterminer
+                "dynamic_scale_factor": scale_factor,  # Apply reverse-calculated scale factor
             }
+
+            logging.info(f"🎨 Approval dialog using scale factor: {scale_factor:.3f}")
 
             qimage = image_creator.create_sequence_image(
                 current_sequence,
@@ -213,3 +218,69 @@ class SynchronousImageGenerator(QObject):
     @property
     def total_images(self) -> int:
         return self.progress_tracker.total_images
+
+    def _calculate_optimal_scale_factor_for_approval_dialog(self) -> float:
+        """
+        Calculate the optimal scale factor for approval dialog images using the same
+        reverse-calculation approach as other generation modes.
+
+        This ensures consistent sizing across all image generation contexts.
+
+        Returns:
+            float: Scale factor to apply to the image creator
+        """
+        try:
+            # Use approval dialog specific target size (larger than page cells)
+            # Approval dialog images should be larger for better review experience
+            target_width = 400  # Larger than page cells for better visibility
+            target_height = 300  # Proportional height
+
+            # Base pictograph size is hardcoded at 950x950 throughout the system
+            BASE_PICTOGRAPH_SIZE = 950
+
+            # Step 1: Estimate layout for typical approval dialog sequences
+            # Most approval sequences are 16 beats + start position
+            columns, rows = 5, 4  # Standard layout for 16-beat + start position
+
+            # Step 2: Calculate what the full-size image dimensions would be
+            core_image_width = columns * BASE_PICTOGRAPH_SIZE
+            core_image_height = rows * BASE_PICTOGRAPH_SIZE
+
+            # Estimate additional heights (using standard calculations)
+            estimated_additional_height_top = 300  # Standard for word label
+            estimated_additional_height_bottom = 150  # Standard for user info
+
+            full_image_width = core_image_width
+            full_image_height = (
+                core_image_height
+                + estimated_additional_height_top
+                + estimated_additional_height_bottom
+            )
+
+            # Step 3: Calculate scale ratio based on approval dialog target size
+            width_scale_ratio = target_width / full_image_width
+            height_scale_ratio = target_height / full_image_height
+
+            # Use the smaller ratio to ensure the image fits within the target size
+            scale_factor = min(width_scale_ratio, height_scale_ratio)
+
+            # Step 4: Apply safety bounds to prevent extreme scaling
+            scale_factor = max(scale_factor, 0.05)  # Minimum 5% to maintain readability
+            scale_factor = min(
+                scale_factor, 0.5
+            )  # Maximum 50% for approval dialog (larger than page cells)
+
+            logging.info(f"🎯 APPROVAL DIALOG SCALE FACTOR: {scale_factor:.3f}")
+            logging.info(
+                f"   📐 Layout: {columns}x{rows}, Full size: {full_image_width}x{full_image_height}"
+            )
+            logging.info(
+                f"   📏 Target: {target_width}x{target_height}, Ratios: W={width_scale_ratio:.3f}, H={height_scale_ratio:.3f}"
+            )
+
+            return scale_factor
+
+        except Exception as e:
+            logging.error(f"Error calculating approval dialog scale factor: {e}")
+            # Fallback to a conservative default that should work for approval dialogs
+            return 0.15  # 15% of original size (larger than page cells)

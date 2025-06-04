@@ -26,7 +26,12 @@ class ParameterControlsManager(QWidget):
         self._create_level_control(layout)
         self._create_intensity_control(layout)
         self._create_mode_control(layout)
+        self._create_cap_type_control(layout)
+        self._create_rotation_type_control(layout)
         self._create_continuity_control(layout)
+
+        # Set up visibility logic for CAP controls
+        self._update_cap_controls_visibility()
 
     def _create_start_position_control(self, layout):
         start_pos_layout = QHBoxLayout()
@@ -88,9 +93,53 @@ class ParameterControlsManager(QWidget):
         self.mode_combo.addItems(["Freeform", "Circular"])
         self.mode_combo.setObjectName("modeCombo")
         self.mode_combo.currentTextChanged.connect(self.parameter_changed.emit)
+        self.mode_combo.currentTextChanged.connect(self._update_cap_controls_visibility)
         mode_layout.addWidget(self.mode_combo)
         mode_layout.addStretch()
         layout.addLayout(mode_layout)
+
+    def _create_cap_type_control(self, layout):
+        """Create CAP type selection control (visible only in circular mode)."""
+        self.cap_type_layout = QHBoxLayout()
+        self.cap_type_layout.addWidget(QLabel("CAP Type:"))
+        self.cap_type_combo = QComboBox()
+        self.cap_type_combo.addItems(
+            [
+                "Strict Rotated",
+                "Strict Mirrored",
+                "Strict Swapped",
+                "Strict Complementary",
+                "Mirrored Swapped",
+                "Swapped Complementary",
+                "Rotated Complementary",
+                "Mirrored Complementary",
+                "Rotated Swapped",
+                "Mirrored Rotated",
+                "Mirrored Complementary Rotated",
+            ]
+        )
+        self.cap_type_combo.setCurrentText("Strict Rotated")
+        self.cap_type_combo.setObjectName("capTypeCombo")
+        self.cap_type_combo.currentTextChanged.connect(self.parameter_changed.emit)
+        self.cap_type_combo.currentTextChanged.connect(
+            self._update_rotation_type_visibility
+        )
+        self.cap_type_layout.addWidget(self.cap_type_combo)
+        self.cap_type_layout.addStretch()
+        layout.addLayout(self.cap_type_layout)
+
+    def _create_rotation_type_control(self, layout):
+        """Create rotation type selection control (visible only when CAP type is strict_rotated)."""
+        self.rotation_type_layout = QHBoxLayout()
+        self.rotation_type_layout.addWidget(QLabel("Rotation Type:"))
+        self.rotation_type_combo = QComboBox()
+        self.rotation_type_combo.addItems(["Halved", "Quartered"])
+        self.rotation_type_combo.setCurrentText("Halved")
+        self.rotation_type_combo.setObjectName("rotationTypeCombo")
+        self.rotation_type_combo.currentTextChanged.connect(self.parameter_changed.emit)
+        self.rotation_type_layout.addWidget(self.rotation_type_combo)
+        self.rotation_type_layout.addStretch()
+        layout.addLayout(self.rotation_type_layout)
 
     def _create_continuity_control(self, layout):
         continuity_layout = QHBoxLayout()
@@ -119,6 +168,48 @@ class ParameterControlsManager(QWidget):
 
         self.level_changed.emit(level_text)
 
+    def _update_cap_controls_visibility(self):
+        """Update visibility of CAP-related controls based on generation mode."""
+        is_circular = self.mode_combo.currentText().lower() == "circular"
+
+        # Show/hide CAP type control based on mode
+        for i in range(self.cap_type_layout.count()):
+            widget = self.cap_type_layout.itemAt(i).widget()
+            if widget:
+                widget.setVisible(is_circular)
+
+        # Update rotation type visibility based on both mode and CAP type
+        self._update_rotation_type_visibility()
+
+    def _update_rotation_type_visibility(self):
+        """Update visibility of rotation type control based on CAP type selection."""
+        is_circular = self.mode_combo.currentText().lower() == "circular"
+        is_strict_rotated = self.cap_type_combo.currentText() == "Strict Rotated"
+        show_rotation_type = is_circular and is_strict_rotated
+
+        # Show/hide rotation type control
+        for i in range(self.rotation_type_layout.count()):
+            widget = self.rotation_type_layout.itemAt(i).widget()
+            if widget:
+                widget.setVisible(show_rotation_type)
+
+    def _cap_type_to_internal(self, display_text: str) -> str:
+        """Convert display text to internal CAP type string."""
+        mapping = {
+            "Strict Rotated": "strict_rotated",
+            "Strict Mirrored": "strict_mirrored",
+            "Strict Swapped": "strict_swapped",
+            "Strict Complementary": "strict_complementary",
+            "Mirrored Swapped": "mirrored_swapped",
+            "Swapped Complementary": "swapped_complementary",
+            "Rotated Complementary": "rotated_complementary",
+            "Mirrored Complementary": "mirrored_complementary",
+            "Rotated Swapped": "rotated_swapped",
+            "Mirrored Rotated": "mirrored_rotated",
+            "Mirrored Complementary Rotated": "mirrored_complementary_rotated",
+        }
+        return mapping.get(display_text, "strict_rotated")
+
     def get_generation_parameters(self) -> "GenerationParams":
         from ..generation_manager import GenerationParams
 
@@ -134,14 +225,18 @@ class ParameterControlsManager(QWidget):
         start_pos_text = self.start_pos_combo.currentText()
         start_position = None if start_pos_text == "Any" else start_pos_text.lower()
 
+        # Get CAP type and rotation type from controls
+        cap_type = self._cap_type_to_internal(self.cap_type_combo.currentText())
+        rotation_type = self.rotation_type_combo.currentText().lower()
+
         return GenerationParams(
             length=int(self.length_combo.currentText()),
             level=level,
             turn_intensity=turn_intensity,
             prop_continuity=self.continuity_combo.currentText().lower(),
             generation_mode=self.mode_combo.currentText().lower(),
-            rotation_type="halved",
-            CAP_type="strict_rotated",
+            rotation_type=rotation_type,
+            CAP_type=cap_type,
             start_position=start_position,
         )
 

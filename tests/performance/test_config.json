@@ -1,0 +1,101 @@
+{
+  "performance_targets": {
+    "widget_creation_ms": 50,
+    "navigation_response_ms": 100,
+    "thumbnail_interaction_ms": 200,
+    "scroll_frame_time_ms": 16.67,
+    "viewport_update_ms": 16.67,
+    "memory_growth_threshold_mb": 100
+  },
+  "test_parameters": {
+    "widget_creation": {
+      "simple_sequence_count": 10,
+      "complex_sequence_count": 10,
+      "cache_test_count": 5,
+      "memory_pressure_objects": 500,
+      "batch_sizes": [1, 2, 3, 5, 10],
+      "progressive_creation_count": 50,
+      "beat_count_ranges": {
+        "simple": [2, 3],
+        "medium": [4, 6],
+        "complex": [8, 12]
+      }
+    },
+    "navigation": {
+      "basic_sections": ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"],
+      "rapid_fire_sections": ["A", "C", "E", "G", "I", "K", "M", "O", "Q", "S"],
+      "rapid_fire_time_limit_seconds": 2,
+      "creation_test_sections": ["B", "D", "F", "H", "J"],
+      "density_test_cases": [
+        ["A", "low_density"],
+        ["M", "medium_density"],
+        ["S", "high_density"]
+      ]
+    },
+    "thumbnail_interaction": {
+      "basic_test_count": 10,
+      "complexity_test_count_per_category": 5,
+      "cache_test_count": 6,
+      "viewer_state_test_count": 6,
+      "sequence_viewer_update_count": 10
+    },
+    "scroll_regression": {
+      "continuous_scroll_duration_seconds": 30,
+      "scroll_during_creation_events": 20,
+      "scroll_during_navigation_events": 10,
+      "viewport_update_test_count": 50,
+      "frame_drop_test_count": 100,
+      "scroll_interval_ms": 50
+    },
+    "memory_stress": {
+      "memory_pressure_objects": 100,
+      "memory_pressure_size_mb": 10,
+      "scale_test_sequence_count": 1000,
+      "cache_stress_sequence_count": 200,
+      "memory_leak_cycles": 10,
+      "memory_leak_widgets_per_cycle": 20
+    },
+    "multi_action": {
+      "concurrent_test_duration_seconds": 30,
+      "scroll_interval_ms": 100,
+      "navigation_interval_ms": 2000,
+      "thumbnail_click_interval_ms": 1500,
+      "endurance_test_duration_seconds": 1800,
+      "endurance_cycle_interval_seconds": 1,
+      "workflow_test_count": 4
+    }
+  },
+  "quick_mode_multipliers": {
+    "sequence_count": 0.2,
+    "test_duration": 0.1,
+    "iteration_count": 0.3,
+    "memory_pressure": 0.1
+  },
+  "output_settings": {
+    "save_json": true,
+    "save_csv": true,
+    "save_human_readable": true,
+    "include_detailed_timing": true,
+    "include_memory_tracking": true,
+    "include_cpu_tracking": true
+  },
+  "logging_settings": {
+    "console_level": "INFO",
+    "file_level": "DEBUG",
+    "performance_log_interval_ms": 100,
+    "memory_log_interval_seconds": 10
+  },
+  "integration_settings": {
+    "browse_tab_v2_module": "browse_tab_v2.browse_tab_v2",
+    "thumbnail_card_module": "browse_tab_v2.components.thumbnail_card",
+    "sequence_viewer_module": "browse_tab_v2.components.modern_sequence_viewer",
+    "cache_service_module": "browse_tab_v2.services.cache_service",
+    "image_service_module": "browse_tab_v2.services.fast_image_service"
+  },
+  "validation_rules": {
+    "minimum_test_count": 5,
+    "maximum_acceptable_failure_rate": 0.2,
+    "performance_regression_threshold": 1.5,
+    "memory_leak_detection_sensitivity": 50
+  }
+}

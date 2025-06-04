@@ -74,6 +74,49 @@ class SequenceLoader:
 
         return sequences
 
+    def get_dictionary_sequences_only(
+        self,
+        images_path: str,
+        length_filter: int = None,
+        level_filters: List[int] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Get only dictionary sequences, excluding generated sequences.
+
+        Args:
+            images_path: Path to the sequence card images directory
+            length_filter: Optional sequence length filter (None = all lengths)
+            level_filters: Optional list of difficulty levels to include (None = all levels)
+
+        Returns:
+            List[Dict[str, Any]]: List of filtered dictionary sequence data dictionaries
+        """
+        return self._load_dictionary_sequences(
+            images_path, length_filter, level_filters
+        )
+
+    def get_generated_sequences_only(
+        self,
+        length_filter: int = None,
+        level_filters: List[int] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Get only generated sequences, excluding dictionary sequences.
+
+        Args:
+            length_filter: Optional sequence length filter (None = all lengths)
+            level_filters: Optional list of difficulty levels to include (None = all levels)
+
+        Returns:
+            List[Dict[str, Any]]: List of filtered generated sequence data dictionaries
+        """
+        if not self.generated_sequence_store:
+            return []
+
+        return self.generated_sequence_store.get_sequences_for_display_system(
+            length_filter, level_filters
+        )
+
     def _load_dictionary_sequences(
         self,
         images_path: str,

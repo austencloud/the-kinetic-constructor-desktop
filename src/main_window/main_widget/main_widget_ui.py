@@ -10,7 +10,7 @@ from core.migration_adapters import AppContextAdapter
 from .construct_tab.construct_tab_factory import ConstructTabFactory
 from .generate_tab.generate_tab_factory import GenerateTabFactory
 from .learn_tab.learn_tab_factory import LearnTabFactory
-from .browse_tab.factory import BrowseTabFactory
+from browse_tab.integration.browse_tab_factory import BrowseTabFactory
 from .main_background_widget.main_background_widget_factory import (
     MainBackgroundWidgetFactory,
 )
@@ -164,12 +164,8 @@ class MainWidgetUI:
 
             mw.generate_tab = GenerateTab(mw, settings_manager, json_manager)
 
-        try:
-            mw.browse_tab = BrowseTabFactory.create(mw, temp_app_context)
-        except TypeError:
-            from .browse_tab.browse_tab import BrowseTab
-
-            mw.browse_tab = BrowseTab(mw, settings_manager, json_manager)
+        # Create Browse Tab using the new factory system
+        mw.browse_tab = BrowseTabFactory.create(mw, temp_app_context)
 
         try:
             mw.learn_tab = LearnTabFactory.create(mw, temp_app_context)

@@ -26,6 +26,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.profiler = profiler
         self.app_context = app_context
+        # PERFORMANCE FIX: Handle None splash screen for instant startup
         self.splash_screen = splash_screen
         self.main_widget = None  # Initialize main_widget to None
 

@@ -29,12 +29,13 @@ class GenerationActionManager(QWidget):
 
     def _create_batch_size_control(self, layout):
         batch_layout = QHBoxLayout()
-        batch_layout.addWidget(QLabel("Batch Size:"))
+        batch_layout.addWidget(QLabel("Generate:"))
         self.batch_size_combo = QComboBox()
-        self.batch_size_combo.addItems(["1", "5", "10", "20"])
-        self.batch_size_combo.setCurrentText("5")
+        self.batch_size_combo.addItems(["5", "10", "15", "30"])
+        self.batch_size_combo.setCurrentText("10")
         self.batch_size_combo.setObjectName("batchSizeCombo")
         batch_layout.addWidget(self.batch_size_combo)
+        batch_layout.addWidget(QLabel("sequences"))
         batch_layout.addStretch()
         layout.addLayout(batch_layout)
 

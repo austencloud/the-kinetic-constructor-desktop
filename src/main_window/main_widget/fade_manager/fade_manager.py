@@ -26,9 +26,20 @@ class FadeManager(QObject):
         self.parallel_stack_fader = ParallelStackFader(self)
         self.widget_and_stack_fader = WidgetAndStackFader(self)
         self.graphics_effect_remover = GraphicsEffectRemover(self)
+        self._temporary_fade_override = (
+            None  # Initialize the temporary override attribute
+        )
+
+    def set_fades_enabled(self, enabled: bool) -> None:
+        """Temporarily override fade settings."""
+        self._temporary_fade_override = enabled
 
     def fades_enabled(self) -> bool:
         """Check if fades are enabled through dependency injection or fallback to legacy."""
+        # Check for temporary override first
+        if self._temporary_fade_override is not None:
+            return self._temporary_fade_override
+
         try:
             if self.app_context and hasattr(self.app_context, "settings_manager"):
                 return (

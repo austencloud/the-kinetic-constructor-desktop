@@ -1,7 +1,7 @@
+from datetime import datetime
 import json
 from typing import TYPE_CHECKING, Union
 
-from main_window.main_widget.browse_tab.controller import datetime
 
 if TYPE_CHECKING:
     from settings_manager.settings_manager import SettingsManager

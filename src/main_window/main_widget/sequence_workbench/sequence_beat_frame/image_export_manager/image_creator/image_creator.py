@@ -1,4 +1,5 @@
 from datetime import datetime
+import logging
 from PyQt6.QtGui import QImage, QPainter, QPen
 from PyQt6.QtCore import Qt
 from typing import TYPE_CHECKING
@@ -30,7 +31,17 @@ class ImageCreator:
         self.export_manager = export_manager
         self.beat_frame = export_manager.beat_frame
         self.layout_manager = export_manager.layout_handler
-        self.beat_size = self.beat_frame.start_pos_view.beat.width()
+        # Get beat size with safety check for None beat
+        if (
+            hasattr(self.beat_frame, "start_pos_view")
+            and self.beat_frame.start_pos_view
+            and hasattr(self.beat_frame.start_pos_view, "beat")
+            and self.beat_frame.start_pos_view.beat
+        ):
+            self.beat_size = self.beat_frame.start_pos_view.beat.width()
+        else:
+            # Default beat size if start_pos_view.beat is None
+            self.beat_size = 950  # Standard beat size
         self.beat_factory = export_manager.beat_factory
         self.beat_scale = 1
         self._setup_drawers()
@@ -71,14 +82,27 @@ class ImageCreator:
         if not fullscreen_preview:
             options.update(self._update_options(options, num_filled_beats))
 
+        # Apply dynamic scale factor FIRST if provided (for page-optimized generation)
+        original_beat_scale = self.beat_scale
+        if (
+            "dynamic_scale_factor" in options
+            and options["dynamic_scale_factor"] is not None
+        ):
+            self.beat_scale = options["dynamic_scale_factor"]
+            logging.info(f"🎯 Applied dynamic scale factor: {self.beat_scale:.3f}")
+
         if options["add_reversal_symbols"]:
             self.reversal_processor.process_reversals(sequence, filled_beats)
+
+        # Calculate additional heights AFTER scale factor is applied
         options["additional_height_top"], options["additional_height_bottom"] = (
             self._determine_additional_heights(options, num_filled_beats)
         )
+
         if dictionary or fullscreen_preview:
             options = self._parse_options_for_dictionary_or_fullscreen_preview(options)
-        # Get the layout based on tFuckhe current beat frame layout
+
+        # Get the layout based on the current beat frame layout
         # Note: layout_manager.calculate_layout returns (columns, rows) for the image
         column_count, row_count = self.layout_manager.calculate_layout(
             num_filled_beats,
@@ -119,6 +143,9 @@ class ImageCreator:
                 override_word=override_word,
                 override_difficulty_level=override_difficulty_level,
             )
+
+        # Restore original beat scale to avoid affecting subsequent operations
+        self.beat_scale = original_beat_scale
 
         return image
 
@@ -227,7 +254,10 @@ class ImageCreator:
                     self.export_manager.beat_frame.json_manager.loader_saver.load_current_sequence()
                 )
             self.difficulty_level_drawer.draw_difficulty_level(
-                image, difficulty_level, options["additional_height_top"]
+                image,
+                difficulty_level,
+                options["additional_height_top"],
+                self.beat_scale,
             )
 
         for beat_view in filled_beats:

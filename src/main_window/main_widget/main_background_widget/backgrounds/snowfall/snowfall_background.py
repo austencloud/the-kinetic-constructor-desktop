@@ -1,12 +1,18 @@
 from typing import TYPE_CHECKING, Union
 from PyQt6.QtGui import QColor, QPainter, QLinearGradient
 from PyQt6.QtWidgets import QWidget
-from main_window.main_widget.main_background_widget.backgrounds.base_background import BaseBackground
+from main_window.main_widget.main_background_widget.backgrounds.base_background import (
+    BaseBackground,
+)
 
 if TYPE_CHECKING:
-    from main_window.main_widget.browse_tab.browse_tab import BrowseTab
+    # Note: BrowseTab import removed due to browse_tab restructure
+    from typing import Any
+
+    BrowseTab = Any
     from main_window.main_widget.learn_tab.learn_tab import LearnTab
     from main_window.main_widget.write_tab.write_tab import WriteTab
+
 
 class SnowfallBackground(BaseBackground):
     def __init__(self, widget: Union["BrowseTab", "LearnTab", "WriteTab"]):
